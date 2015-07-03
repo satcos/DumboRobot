@@ -30,3 +30,10 @@
 
 # Debug files
 *.dSYM/
+
+# Ride project files
+*.~RJ
+*.~AOF
+*.~M51
+*.~XRF
+*.~LST

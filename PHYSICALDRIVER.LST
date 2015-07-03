@@ -1,0 +1,148 @@
+MACRO ASSEMBLER PHYSICALDRIVER                              07/03/15 20:49:21 PAGE     1
+
+
+WIN32 MACRO ASSEMBLER MA51 V6.04.07OBJECT MODULE PLACED IN D:\PROGRAM FILES\RIDE\WORKSPACE\DUMBOROBOT\PHYSICALDRIVER.OBJ
+ASSEMBLER INVOKED BY: MA51.EXE D:\PROGRAM FILES\RIDE\WORKSPACE\DUMBOROBOT\PHYSICALDRIVER.A51 OJ("D:\PROGRAM FILES\RIDE\WORKSPACE\DUMBOROBOT\PHYSICALDRIVER.OBJ") PIN("D:\PROGRAM FILES\RIDE\INC") EP LINES SYNTAX(ASM51) PR("D:\PROGRAM FILES\RIDE\WORKSPACE\DUMBOROBOT\PHYSICALDRIVER.LST") XR DB PW(80) RB(0) 
+
+LOC     OBJ           LINE    SOURCE
+                         1     INCLUDE REG_51.PDF
+                        80     
+                        81     ; ===============================================================================
+                        82     ; Register Bank
+                        83     ; ===============================================================================
+  0000                  84     RB0		EQU		000H    ; Select Register Bank 0
+  0008                  85     RB1		EQU		008H    ; Select Register Bank 1  ...poke to PSW to use
+  0010                  86     RB2		EQU		010H    ; Select Register Bank 2.
+                        87     
+                        88     
+                        89     ; ===============================================================================
+                        90     ; Port Declaration
+                        91     ; ===============================================================================
+  00B1                  92     LED		EQU		P3.1	; Red Led indicator
+  00B2                  93     INPUT	EQU		P3.2	; Port3,Bit2 is used as input. The demodulated signal
+                        94     						; with active low level is connected to this pin
+                        95     
+                        96     
+                        97     						
+                        98     ; ===============================================================================
+                        99     ; Code begins here
+                       100     ; ===============================================================================
+------                 101     CSEG            
+  0000                 102     ORG 0000H							; Reset
+0000    020003         103     	JMP MAIN
+                       104     	
+                       105     ; ===============================================================================
+                       106     ; MAIN: Main program
+                       107     ; Blinks Led to check controller functionality
+                       108     ; ===============================================================================
+                       109     MAIN: 
+0003    D2B1           110     SETB 177 
+                       111     	LOOP1: 
+0005    7905           112     		MOV R1, #0005H
+                       113     		LOOP2: 
+0007    7AFF           114     			MOV R2, #00FFH
+                       115     			LOOP3: 
+0009    7BFF           116     				MOV R3, #00FFH
+000B    DBFE           117     				DJNZ R3, $							; Waste Time to sync second bit
+000D    DAFA           118     				DJNZ R2, LOOP3
+000F    D9F6           119     			DJNZ R1, LOOP2						; Waste Time to sync second bit
+0011    B2B1           120     CPL 177 
+0013    80F0           121     	JMP LOOP1
+
+*** WARNING #87 IN LINE 43 OF physicaldriver.a51 : MISSING 'END' STATEMENT
+MACRO ASSEMBLER PHYSICALDRIVER                              07/03/15 20:49:21 PAGE     0
+
+
+SYMBOL TABLE LISTING
+------ ----- -------
+
+
+N A M E             T Y P E  V A L U E   ATTRIBUTES             REFERENCES
+
+DPL. . . . . . . .  D ADDR   0082H   A                          16# 
+P0 . . . . . . . .  D ADDR   0080H   A                          8# 
+P1 . . . . . . . .  D ADDR   0090H   A                          9# 
+B. . . . . . . . .  D ADDR   00F0H   A                          14# 
+P2 . . . . . . . .  D ADDR   00A0H   A                          10# 
+PS . . . . . . . .  B ADDR   00B8H.4 A                          57# 
+SP . . . . . . . .  D ADDR   0081H   A                          15# 
+P3 . . . . . . . .  D ADDR   00B0H   A                          11# 92 93 
+RB0. . . . . . . .  N NUMB   0000h                              84# 
+T0 . . . . . . . .  B ADDR   00B0H.4 A                          66# 
+AC . . . . . . . .  B ADDR   00D0H.6 A                          34# 
+MAIN . . . . . . .  C ADDR   0003H   A                          103 109# 
+RB1. . . . . . . .  N NUMB   0008h                              85# 
+REN. . . . . . . .  B ADDR   0098H.4 A                          75# 
+T1 . . . . . . . .  B ADDR   00B0H.5 A                          65# 
+OV . . . . . . . .  B ADDR   00D0H.2 A                          38# 
+RB2. . . . . . . .  N NUMB   0010h                              86# 
+EA . . . . . . . .  B ADDR   00A8H.7 A                          50# 
+ACC. . . . . . . .  D ADDR   00E0H   A                          13# 
+WR . . . . . . . .  B ADDR   00B0H.6 A                          64# 
+ET0. . . . . . . .  B ADDR   00A8H.1 A                          54# 
+ET1. . . . . . . .  B ADDR   00A8H.3 A                          52# 
+TF0. . . . . . . .  B ADDR   0088H.5 A                          43# 
+LOOP1. . . . . . .  C ADDR   0005H   A                          111# 121 
+TF1. . . . . . . .  B ADDR   0088H.7 A                          41# 
+LOOP2. . . . . . .  C ADDR   0007H   A                          113# 119 
+RB8. . . . . . . .  B ADDR   0098H.2 A                          77# 
+TH0. . . . . . . .  D ADDR   008CH   A                          23# 
+LOOP3. . . . . . .  C ADDR   0009H   A                          115# 118 
+EX0. . . . . . . .  B ADDR   00A8H.0 A                          55# 
+IT0. . . . . . . .  B ADDR   0088H.0 A                          48# 
+TH1. . . . . . . .  D ADDR   008DH   A                          24# 
+TB8. . . . . . . .  B ADDR   0098H.3 A                          76# 
+RXD. . . . . . . .  B ADDR   00B0H.0 A                          70# 
+EX1. . . . . . . .  B ADDR   00A8H.2 A                          53# 
+IT1. . . . . . . .  B ADDR   0088H.2 A                          46# 
+IE . . . . . . . .  D ADDR   00A8H   A                          25# 
+INPUT. . . . . . .  B ADDR   00B0H.2 A                          93# 
+SM0. . . . . . . .  B ADDR   0098H.7 A                          72# 
+TXD. . . . . . . .  B ADDR   00B0H.1 A                          69# 
+P. . . . . . . . .  B ADDR   00D0H.0 A                          39# 
+SBUF . . . . . . .  D ADDR   0099H   A                          28# 
+TL0. . . . . . . .  D ADDR   008AH   A                          21# 
+PCON . . . . . . .  D ADDR   0087H   A                          18# 
+SM1. . . . . . . .  B ADDR   0098H.6 A                          73# 
+TL1. . . . . . . .  D ADDR   008BH   A                          22# 
+SM2. . . . . . . .  B ADDR   0098H.5 A                          74# 
+SCON . . . . . . .  D ADDR   0098H   A                          27# 
+PT0. . . . . . . .  B ADDR   00B8H.1 A                          60# 
+TMOD . . . . . . .  D ADDR   0089H   A                          20# 
+TCON . . . . . . .  D ADDR   0088H   A                          19# 
+LED. . . . . . . .  B ADDR   00B0H.1 A                          92# 110 120 
+PT1. . . . . . . .  B ADDR   00B8H.3 A                          58# 
+RS0. . . . . . . .  B ADDR   00D0H.3 A                          37# 
+RD . . . . . . . .  B ADDR   00B0H.7 A                          63# 
+TR0. . . . . . . .  B ADDR   0088H.4 A                          44# 
+RS1. . . . . . . .  B ADDR   00D0H.4 A                          36# 
+F0 . . . . . . . .  B ADDR   00D0H.5 A                          35# 
+TR1. . . . . . . .  B ADDR   0088H.6 A                          42# 
+PX0. . . . . . . .  B ADDR   00B8H.0 A                          61# 
+ES . . . . . . . .  B ADDR   00A8H.4 A                          51# 
+PX1. . . . . . . .  B ADDR   00B8H.2 A                          59# 
+IP . . . . . . . .  D ADDR   00B8H   A                          26# 
+PSW. . . . . . . .  D ADDR   00D0H   A                          12# 
+RI . . . . . . . .  B ADDR   0098H.0 A                          79# 
+INT0 . . . . . . .  B ADDR   00B0H.2 A                          68# 
+INT1 . . . . . . .  B ADDR   00B0H.3 A                          67# 
+CY . . . . . . . .  B ADDR   00D0H.7 A                          33# 
+DPH. . . . . . . .  D ADDR   0083H   A                          17# 
+TI . . . . . . . .  B ADDR   0098H.1 A                          78# 
+IE0. . . . . . . .  B ADDR   0088H.1 A                          47# 
+IE1. . . . . . . .  B ADDR   0088H.3 A                          45# 
+
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =     21    ----
+   XDATA SIZE       =   ----    ----
+   DATA SIZE        =   ----    ----
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =   ----    ----
+END OF MODULE INFORMATION.
+
+
+REGISTER BANK(S) USED : 0 
+
+ASSEMBLY COMPLETE.   1 WARNING(S)   0 ERROR(S)

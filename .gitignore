@@ -26,14 +26,6 @@
 *.app
 *.i*86
 *.x86_64
-*.hex
 
 # Debug files
 *.dSYM/
-
-# Ride project files
-*.~RJ
-*.~AOF
-*.~M51
-*.~XRF
-*.~LST

@@ -1,4 +1,4 @@
-LX51 CODE BANKING LINKER/LOCATOR V5.01.14        07/03/15  20:49:22  PAGE  1
+LX51 CODE BANKING LINKER/LOCATOR V5.01.14        07/04/15  18:17:10  PAGE  1
 WIN32 LX51 CODE BANKING LINKER/LOCATOR V5.01.14,  INVOKED BY:
 LX51 d:\program files\ride\workspace\dumborobot\physicaldriver.obj TO(d:\prog&
 ram files\ride\workspace\dumborobot\dumborobot.AOF) PR(d:\program files\ride\&
@@ -21,15 +21,18 @@ PHYSICALDRIVER)
 
     * * * * * * *   DATA/IDATA    M E M O R Y   * * * * * * *
     REG      0000H      0008H     ABSOLUTE       "REG BANK 0"
+             0008H      0018H                    *** GAP ***
+    DATA     0020H      0004H     ABSOLUTE       
 
     * * * * * * *   CODE          M E M O R Y   * * * * * * *
-    CODE     0000H      0015H     ABSOLUTE       
+    CODE     0000H      0003H     ABSOLUTE       
+    CODE     0003H      0085H     ABSOLUTE       
 
 EXECUTABLE SUMMARY:
 -------------------
-    Total INTERNAL RAM storage requirement:  0008H (8)
+    Total INTERNAL RAM storage requirement:  000CH (12)
     Total EXTERNAL RAM storage requirement:  0000H (0)
-    Total     CODE     storage requirement:  0015H (21)
+    Total     CODE     storage requirement:  0088H (136)
 Note:  Summary does not include dynamic stack requirements
 
 
@@ -50,32 +53,37 @@ ICALDRIVER)
 	-------            MODULE             PHYSICALDRIVER
 	D:0082H            SYMBOL             DPL
 	D:0080H            SYMBOL             P0
+	D:0023H            SYMBOL             OLDTOGGLE
+	B:0001H            SYMBOL             TOGGLEBIT
 	D:0090H            SYMBOL             P1
+	C:0034H            SYMBOL             READADDRESS
 	D:00F0H            SYMBOL             B
 	D:00A0H            SYMBOL             P2
+	C:0006H            SYMBOL             RECEIVE
 	B:00BCH            SYMBOL             PS
 	D:0081H            SYMBOL             SP
 	D:00B0H            SYMBOL             P3
+	C:0086H            SYMBOL             HERE
 	B:00B4H            SYMBOL             T0
 	B:00D6H            SYMBOL             AC
-	C:0003H            SYMBOL             MAIN
+	C:0075H            SYMBOL             MAIN
 	B:009CH            SYMBOL             REN
+LX51 CODE BANKING LINKER/LOCATOR V5.01.14          07/04/15  18:17:10  PAGE  2
+
 	B:00B5H            SYMBOL             T1
 	B:00D2H            SYMBOL             OV
 	B:00AFH            SYMBOL             EA
 	D:00E0H            SYMBOL             ACC
 	B:00B6H            SYMBOL             WR
 	B:00A9H            SYMBOL             ET0
+	D:0021H            SYMBOL             ADDRESSPLUS
+	B:0002H            SYMBOL             NEW
 	B:00ABH            SYMBOL             ET1
 	B:008DH            SYMBOL             TF0
-LX51 CODE BANKING LINKER/LOCATOR V5.01.14          07/03/15  20:49:22  PAGE  2
-
-	C:0005H            SYMBOL             LOOP1
 	B:008FH            SYMBOL             TF1
-	C:0007H            SYMBOL             LOOP2
 	B:009AH            SYMBOL             RB8
 	D:008CH            SYMBOL             TH0
-	C:0009H            SYMBOL             LOOP3
+	D:0020H            SYMBOL             FLAGS
 	B:00A8H            SYMBOL             EX0
 	B:0088H            SYMBOL             IT0
 	D:008DH            SYMBOL             TH1
@@ -106,9 +114,11 @@ ICALDRIVER)
 	B:008EH            SYMBOL             TR1
 	B:00B8H            SYMBOL             PX0
 	B:00ACH            SYMBOL             ES
+	C:0072H            SYMBOL             SKIPTOGGLE
 	B:00BAH            SYMBOL             PX1
 	D:00B8H            SYMBOL             IP
 	D:00D0H            SYMBOL             PSW
+	C:004EH            SYMBOL             READCOMMAND
 	B:0098H            SYMBOL             RI
 	B:00B2H            SYMBOL             INT0
 	B:00B3H            SYMBOL             INT1
@@ -116,17 +126,83 @@ ICALDRIVER)
 	D:0083H            SYMBOL             DPH
 	B:0099H            SYMBOL             TI
 	B:0089H            SYMBOL             IE0
+	C:0031H            SYMBOL             CONTINUEREADING
+	D:0022H            SYMBOL             COMMAND
 	B:008BH            SYMBOL             IE1
-	C:0000H            LINE#              25
-	C:0003H            LINE#              32
-	C:0005H            LINE#              34
-	C:0007H            LINE#              36
-	C:0009H            LINE#              38
-	C:000BH            LINE#              39
-	C:000DH            LINE#              40
-	C:000FH            LINE#              41
-	C:0011H            LINE#              42
-	C:0013H            LINE#              43
+	C:0000H            LINE#              38
+	C:0003H            LINE#              40
+	C:0005H            LINE#              41
+	C:0006H            LINE#              57
+	C:0008H            LINE#              58
+	C:0009H            LINE#              61
+	C:000BH            LINE#              62
+	C:000DH            LINE#              63
+	C:000FH            LINE#              64
+LX51 CODE BANKING LINKER/LOCATOR V5.01.14          07/04/15  18:17:10  PAGE  3
+
+	C:0010H            LINE#              65
+	C:0012H            LINE#              66
+	C:0014H            LINE#              69
+	C:0016H            LINE#              70
+	C:0018H            LINE#              71
+	C:001AH            LINE#              72
+	C:001BH            LINE#              73
+	C:001DH            LINE#              74
+	C:001FH            LINE#              77
+	C:0021H            LINE#              78
+	C:0023H            LINE#              79
+	C:0025H            LINE#              80
+	C:0026H            LINE#              81
+	C:0028H            LINE#              82
+	C:002AH            LINE#              87
+	C:002CH            LINE#              88
+	C:002EH            LINE#              89
+	C:0030H            LINE#              90
+	C:0031H            LINE#              97
+	C:0033H            LINE#              98
+	C:0034H            LINE#              100
+	C:0036H            LINE#              101
+	C:0038H            LINE#              102
+	C:003AH            LINE#              103
+	C:003BH            LINE#              104
+	C:003DH            LINE#              105
+	C:003FH            LINE#              106
+	C:0041H            LINE#              107
+	C:0043H            LINE#              108
+	C:0045H            LINE#              109
+	C:0047H            LINE#              110
+	C:0049H            LINE#              111
+	C:004BH            LINE#              114
+	C:004DH            LINE#              115
+	C:004EH            LINE#              117
+	C:0050H            LINE#              118
+	C:0052H            LINE#              119
+	C:0054H            LINE#              120
+	C:0055H            LINE#              121
+	C:0057H            LINE#              122
+	C:0059H            LINE#              123
+	C:005BH            LINE#              124
+	C:005DH            LINE#              125
+	C:005FH            LINE#              126
+	C:0061H            LINE#              127
+	C:0063H            LINE#              128
+	C:0065H            LINE#              131
+	C:0067H            LINE#              132
+	C:006AH            LINE#              134
+	C:006CH            LINE#              135
+	C:006EH            LINE#              136
+	C:0070H            LINE#              146
+	C:0072H            LINE#              150
+	C:0074H            LINE#              153
+	C:0075H            LINE#              160
+	C:0077H            LINE#              161
+	C:0079H            LINE#              162
+	C:007BH            LINE#              163
+	C:007DH            LINE#              165
+	C:007FH            LINE#              166
+	C:0081H            LINE#              167
+	C:0083H            LINE#              169
+	C:0086H            LINE#              172
 	-------            ENDMOD             PHYSICALDRIVER
 
 LINK/LOCATE RUN COMPLETE,  NO ERROR FOUND.

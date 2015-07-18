@@ -7,15 +7,34 @@ RB0		EQU		000H    ; Select Register Bank 0
 RB1		EQU		008H    ; Select Register Bank 1
 RB2		EQU		010H    ; Select Register Bank 2
 
+; ===============================================================================
+; Command Constant declaration
+; ===============================================================================
+CMDSTOP		EQU	000H
+PLSFORWARD	EQU	001H
+CNTFORWARD	EQU	002H
+PLSRIGHT	EQU	003H
+CNTRIGHT	EQU	004H
+PLSLEFT		EQU	005H
+CNTLEFT		EQU	006H
+PLSBACK		EQU	007H
+CNTBACK		EQU	008H
+SHUTDOWN	EQU	00FH
 
 ; ===============================================================================
 ; Port Declaration
 ; ===============================================================================
-LED		EQU		P3.1	; Red Led indicator
-INPUT	EQU		P3.2	; Port3, Bit2 is used as input. The demodulated signal
-						; with active low level is connected to this pin
-OUTPUT	EQU		P2		; 8 bit output port
-TESTBIT	EQU		P1.0	; TestBit
+RELAY		EQU		P1.4	; Raspberry pi turn on relay
+
+MOTORDRIVER EQU		P2		; Motors are connected to this port through bridge connection
+
+LED			EQU		P3.1	; Red Led indicator
+INPUT		EQU		P3.3	; Port3, Bit3 is used as input ready interrupt.
+MSBIT1		EQU		P3.6	; 4 data bits
+MSBIT2		EQU		P3.4	; 
+MSBIT3		EQU		P3.5	; 
+MSBIT4		EQU		P3.7	; 
+
 ; ===============================================================================
 ; Data Declaration
 ; ===============================================================================
@@ -23,12 +42,11 @@ DSEG
 ; This is internal data memory
 ; Bit addressable memory
 ORG 20H
+	COMMAND:		DS		1			; 4 bit command, 8 bits are allocated
 	FLAGS:			DS		1
-	TOGGLEBIT		BIT		FLAGS.1		; Toggles with every new keystroke
+	NEWCOMMAND		BIT		FLAGS.1		; Toggle represents and new command
 	NEW				BIT		FLAGS.2		; Bit set when a new command has been received
-	ADDRESSPLUS:	DS		1			; S2, Toggle and 5 bit address
-	COMMAND:		DS		1			; 6 bit command
-	OLDTOGGLE:		DS		1			; S2, Toggle and 5 bit address
+	
 						
 ; ===============================================================================
 ; Code begins here
@@ -42,114 +60,52 @@ ORG 0003H  							; External Interrupt 0
 
 	
 ; ===============================================================================
-; RECEIVE: Interrupt 0 routine 
-; Receives signal from IR remove
-; Bit Sequence
-; S1 S2 Toggle 5 Bit Address 6 Bit Command
-; Total duration of a bit 1.778ms
-; Quarter of the bit is 0.4445ms
-; Instructions MOV R1, #222 and DJNZ R1, $ need 0.445 ms 
-; which is approximately 1/4th of the bit length
-; Crystal frequency is 12MHz
+; RECEIVE: Interrupt 1 routine 
+; INPUT falling from 1 to zero indicated availability of new command
+; 4 data bits are read in sequence and stored in COMMAND
 ; ===============================================================================
 RECEIVE:
-	; Disable global interrupt
-	CLR EA
+	
+	; Clear accumulator
 	CLR A
 	
-	; Already half of the s1 bit is spent, wait for the 2nd half of the bit
-	MOV R1, #222
-	DJNZ R1, $
-	MOV C, INPUT		
+	; Read Most Significant Bit 1
+	MOV C, MSBIT1
 	RLC A
-	MOV R1, #222
-	DJNZ R1, $
 	
-	; First Half of Start 2 bit
-	MOV R1, #222
-	DJNZ R1, $
-	MOV C, INPUT
+	; Read Most Significant Bit 2
+	MOV C, MSBIT2
 	RLC A
-	MOV R1, #222
-	DJNZ R1, $
 	
-	; Second Half of Start 2 bit
-	MOV R1, #222
-	DJNZ R1, $
-	MOV C, INPUT
+	; Read Most Significant Bit 3
+	MOV C, MSBIT3
 	RLC A
-	MOV R1, #222
-	DJNZ R1, $
 	
-	; Check for noise input
-	; If the accumulator value doesn't match with the expected value,
-	; its a noise and hence exit
-	XRL A, #005H
-	JZ CONTINUEREADING
-	SETB EA
-	RET
+	; Read Most Significant Bit 4
+	MOV C, MSBIT4
+	RLC A
 	
-	CONTINUEREADING:
-	; Store toggle bit and 5 bit address in ADDRESSPLUS location
-	; Loop through 6 times to read toggle and 5 bit address
-	; Wait 1/4 of the bit and read bit value
-	; then wast 3/4th of time
-	MOV R2, #006H
-	CLR A
-	READADDRESS:
-		MOV R1, #222
-		DJNZ R1, $
-		MOV C, INPUT
-		RLC A
-		MOV R1, #222
-		DJNZ R1, $
-		MOV R1, #222
-		DJNZ R1, $
-		MOV R1, #220
-		DJNZ R1, $	
-		DJNZ R2, READADDRESS
-	MOV ADDRESSPLUS, A
-	
-	; Loop through 6 times and read command
-	MOV R2, #006H
-	CLR A
-	READCOMMAND:
-		MOV R1, #222
-		DJNZ R1, $
-		MOV C, INPUT
-		RLC A
-		MOV R1, #222
-		DJNZ R1, $
-		MOV R1, #222
-		DJNZ R1, $
-		MOV R1, #220
-		DJNZ R1, $
-		DJNZ R2, READCOMMAND
+	; Store the received command in 'COMMAND'
 	MOV COMMAND, A
 	
-	; Send the received command to the output port
-	CLR OUTPUT
-	MOV OUTPUT, COMMAND
-	
-	MOV A, COMMAND
-	XRL A, #03FH
-	JZ SKIPTOGGLE
-	
-	; ; Complement LED if new button is clicked
-	; MOV A, ADDRESSPLUS
-	; ANL A, #020H
-	; MOV ADDRESSPLUS, A
-	; XRL A, OLDTOGGLE
-	; JZ SKIPTOGGLE
-	; MOV OLDTOGGLE, A
-	
-	CPL LED
-	SKIPTOGGLE:
-	
-	; Enable global interrupt again
-	SETB EA
+	SETB NEWCOMMAND
 	
 	; Exit routine
+	RET
+
+; ===============================================================================
+; PAUSEMOTOR: Switch off motors for few cycles so that they can be operated in reverse direction
+; ===============================================================================
+PAUSEMOTOR:
+	MOV MOTORDRIVER, #000H
+	MOV R7, #0FFH
+	DJNZ R7, $
+	MOV R7, #0FFH
+	DJNZ R7, $
+	MOV R7, #0FFH
+	DJNZ R7, $
+	MOV R7, #0FFH
+	DJNZ R7, $
 	RET
 	
 ; ===============================================================================
@@ -157,18 +113,156 @@ RECEIVE:
 ; Blinks Led to check controller functionality
 ; ===============================================================================
 MAIN:
+	
+	; ===========================================================================
+	; Initialization
+	; Port
+	CLR LED
 	SETB INPUT
-	CLR OUTPUT
-	CLR TESTBIT
-	SETB LED
+	SETB MSBIT1
+	SETB MSBIT2
+	SETB MSBIT3
+	SETB MSBIT4
+	SETB RELAY
 	
-	SETB EX0						; Enable external Interrupt0
-	CLR IT0							; Triggered by a high to low transition
+	; Storage
+	CLR NEWCOMMAND
+	MOV COMMAND, #0000H
+	
+	; Interrupt
+	SETB EX1						; Enable external Interrupt1
+	CLR IT1							; Triggered by a high to low transition
 	SETB EA							; Enable global interrupt
+	; ===========================================================================
 	
-	MOV OLDTOGGLE, #000H
+	
+	; Test code, will be removed in the final version
+	LOOP1:
+		ACALL PAUSEMOTOR
+		MOV MOTORDRIVER, #05CH
+		MOV R1, #00AFH
+		LOOP2:
+			MOV R2, #00FFH
+			LOOP3:
+				MOV R3, #00FFH
+				DJNZ R3, $
+				DJNZ R2, LOOP3
+			DJNZ R1, LOOP2
+		CPL LED
 		
+		ACALL PAUSEMOTOR
+		MOV MOTORDRIVER, #0A3H
+		MOV R1, #00AFH
+		LOOP4:
+			MOV R2, #00FFH
+			LOOP5:
+				MOV R3, #00FFH
+				DJNZ R3, $
+				DJNZ R2, LOOP5
+			DJNZ R1, LOOP4
+		CPL LED
+
+		ACALL PAUSEMOTOR
+		MOV MOTORDRIVER, #095H
+		MOV R1, #00AFH
+		LOOP6:
+			MOV R2, #00FFH
+			LOOP7:
+				MOV R3, #00FFH
+				DJNZ R3, $
+				DJNZ R2, LOOP7
+			DJNZ R1, LOOP6
+		CPL LED
+
+		ACALL PAUSEMOTOR
+		MOV MOTORDRIVER, #06AH
+		MOV R1, #00AFH
+		LOOP8:
+			MOV R2, #00FFH
+			LOOP9:
+				MOV R3, #00FFH
+				DJNZ R3, $
+				DJNZ R2, LOOP9
+			DJNZ R1, LOOP8
+		CPL LED
+		
+		JMP LOOP1
+	
+	
+	; Wait till new command is received
 	HERE:
+	JNB NEWCOMMAND, HERE
+	
+	; Proceed if new command is received
+	; As we started reading the new command, set off its flag
+	; #000H		Stop
+	; #05CH		Forward
+	; #0A3H		Backward
+	; #095H		Right
+	; #06AH		Left
+	
+	CLR NEWCOMMAND
+	MOV A, COMMAND
+	
+		CJNE A, CMDSTOP, LPF
+		MOV MOTORDRIVER, #000H
+		SJMP HERE
+	LPF:
+		CJNE A, PLSFORWARD, LCF
+		MOV MOTORDRIVER, #000H
+		NOP
+		NOP
+		SJMP HERE
+	LCF:
+		CJNE A, CNTFORWARD, LPR
+		MOV MOTORDRIVER, #000H
+		NOP
+		NOP
+		SJMP HERE
+	LPR:
+		CJNE A, PLSRIGHT, LCR
+		MOV MOTORDRIVER, #000H
+		NOP
+		NOP
+		SJMP HERE
+	LCR:
+		CJNE A, CNTRIGHT, LPL
+		MOV MOTORDRIVER, #000H
+		NOP
+		NOP
+		SJMP HERE
+	LPL:
+		CJNE A, PLSLEFT, LCL
+		MOV MOTORDRIVER, #000H
+		NOP
+		NOP
+		SJMP HERE
+	LCL:
+		CJNE A, CNTLEFT, LPB
+		MOV MOTORDRIVER, #000H
+		NOP
+		NOP
+		SJMP HERE
+	LPB:
+		CJNE A, PLSBACK, LCB
+		MOV MOTORDRIVER, #000H
+		NOP
+		NOP
+		SJMP HERE
+	LCB:
+		CJNE A, CNTBACK, LSH
+		MOV MOTORDRIVER, #000H
+		NOP
+		NOP
+		SJMP HERE
+	LSH:
+		CJNE A, SHUTDOWN, HERE
+		MOV MOTORDRIVER, #000H
+		NOP
+		NOP
+		CLR RELAY
+	
+
 	SJMP HERE
 
 END

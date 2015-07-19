@@ -29,11 +29,11 @@ RELAY		EQU		P1.4	; Raspberry pi turn on relay
 MOTORDRIVER EQU		P2		; Motors are connected to this port through bridge connection
 
 LED			EQU		P3.1	; Red Led indicator
-INPUT		EQU		P3.3	; Port3, Bit3 is used as input ready interrupt.
-MSBIT1		EQU		P3.6	; 4 data bits
-MSBIT2		EQU		P3.4	; 
-MSBIT3		EQU		P3.5	; 
-MSBIT4		EQU		P3.7	; 
+INPUT		EQU		P3.3	; Port3, Bit3 is used as input ready interrupt.	Pi Pin 11
+MSBIT1		EQU		P3.6	; 4 data bits. Pi Pin 12
+MSBIT2		EQU		P3.4	; Pi Pin 13
+MSBIT3		EQU		P3.5	; Pi Pin 15
+MSBIT4		EQU		P3.7	; Pi Pin 16
 
 ; ===============================================================================
 ; Data Declaration
@@ -54,7 +54,7 @@ ORG 20H
 CSEG            
 ORG	0000H							; Reset
 	JMP MAIN
-ORG 0003H  							; External Interrupt 0
+ORG 0013H  							; External Interrupt 0
 	ACALL RECEIVE
 	RETI
 
@@ -106,6 +106,42 @@ PAUSEMOTOR:
 	DJNZ R7, $
 	MOV R7, #0FFH
 	DJNZ R7, $
+	MOV R7, #0FFH
+	DJNZ R7, $
+	MOV R7, #0FFH
+	DJNZ R7, $
+	MOV R7, #0FFH
+	DJNZ R7, $
+	MOV R7, #0FFH
+	DJNZ R7, $
+	RET
+
+; ===============================================================================
+; DELAYPULSE: Delay for pulse movement.
+; 1 second and 51 millisecond
+; If new command is received, exit the current loop
+; ===============================================================================
+DELAYPULSE:
+	MOV R1, #0008H
+		LOOP2:
+			MOV R2, #00FFH
+			LOOP3:
+				MOV R3, #00FFH
+				DJNZ R3, $
+				JB NEWCOMMAND, EXITDELALY
+				DJNZ R2, LOOP3
+			DJNZ R1, LOOP2
+	EXITDELALY:
+	RET
+; ===============================================================================
+; DELAY2MIN: Two minute delay,after which raspberry pi power
+; will be shut-down.
+; ===============================================================================
+DELAY2MIN:
+	MOV R7, #0078H
+	D2ML1:
+		ACALL DELAYPULSE
+		DJNZ R7, D2ML1
 	RET
 	
 ; ===============================================================================
@@ -124,6 +160,7 @@ MAIN:
 	SETB MSBIT3
 	SETB MSBIT4
 	SETB RELAY
+	MOV MOTORDRIVER, #000H
 	
 	; Storage
 	CLR NEWCOMMAND
@@ -131,62 +168,9 @@ MAIN:
 	
 	; Interrupt
 	SETB EX1						; Enable external Interrupt1
-	CLR IT1							; Triggered by a high to low transition
+	SETB IT1						; Triggered by a high to low transition
 	SETB EA							; Enable global interrupt
 	; ===========================================================================
-	
-	
-	; Test code, will be removed in the final version
-	LOOP1:
-		ACALL PAUSEMOTOR
-		MOV MOTORDRIVER, #05CH
-		MOV R1, #00AFH
-		LOOP2:
-			MOV R2, #00FFH
-			LOOP3:
-				MOV R3, #00FFH
-				DJNZ R3, $
-				DJNZ R2, LOOP3
-			DJNZ R1, LOOP2
-		CPL LED
-		
-		ACALL PAUSEMOTOR
-		MOV MOTORDRIVER, #0A3H
-		MOV R1, #00AFH
-		LOOP4:
-			MOV R2, #00FFH
-			LOOP5:
-				MOV R3, #00FFH
-				DJNZ R3, $
-				DJNZ R2, LOOP5
-			DJNZ R1, LOOP4
-		CPL LED
-
-		ACALL PAUSEMOTOR
-		MOV MOTORDRIVER, #095H
-		MOV R1, #00AFH
-		LOOP6:
-			MOV R2, #00FFH
-			LOOP7:
-				MOV R3, #00FFH
-				DJNZ R3, $
-				DJNZ R2, LOOP7
-			DJNZ R1, LOOP6
-		CPL LED
-
-		ACALL PAUSEMOTOR
-		MOV MOTORDRIVER, #06AH
-		MOV R1, #00AFH
-		LOOP8:
-			MOV R2, #00FFH
-			LOOP9:
-				MOV R3, #00FFH
-				DJNZ R3, $
-				DJNZ R2, LOOP9
-			DJNZ R1, LOOP8
-		CPL LED
-		
-		JMP LOOP1
 	
 	
 	; Wait till new command is received
@@ -204,65 +188,65 @@ MAIN:
 	CLR NEWCOMMAND
 	MOV A, COMMAND
 	
-		CJNE A, CMDSTOP, LPF
+		CJNE A, #CMDSTOP, LPF
 		MOV MOTORDRIVER, #000H
 		SJMP HERE
 	LPF:
-		CJNE A, PLSFORWARD, LCF
+		CJNE A, #PLSFORWARD, LCF
+		ACALL PAUSEMOTOR
+		MOV MOTORDRIVER, #05CH
+		ACALL DELAYPULSE
 		MOV MOTORDRIVER, #000H
-		NOP
-		NOP
 		SJMP HERE
 	LCF:
-		CJNE A, CNTFORWARD, LPR
-		MOV MOTORDRIVER, #000H
-		NOP
-		NOP
+		CJNE A, #CNTFORWARD, LPR
+		ACALL PAUSEMOTOR
+		MOV MOTORDRIVER, #05CH
 		SJMP HERE
 	LPR:
-		CJNE A, PLSRIGHT, LCR
+		CJNE A, #PLSRIGHT, LCR
+		ACALL PAUSEMOTOR
+		MOV MOTORDRIVER, #095H
+		ACALL DELAYPULSE
 		MOV MOTORDRIVER, #000H
-		NOP
-		NOP
 		SJMP HERE
 	LCR:
-		CJNE A, CNTRIGHT, LPL
-		MOV MOTORDRIVER, #000H
-		NOP
-		NOP
+		CJNE A, #CNTRIGHT, LPL
+		ACALL PAUSEMOTOR
+		MOV MOTORDRIVER, #095H
 		SJMP HERE
 	LPL:
-		CJNE A, PLSLEFT, LCL
+		CJNE A, #PLSLEFT, LCL
+		ACALL PAUSEMOTOR
+		MOV MOTORDRIVER, #06AH
+		ACALL DELAYPULSE
 		MOV MOTORDRIVER, #000H
-		NOP
-		NOP
 		SJMP HERE
 	LCL:
-		CJNE A, CNTLEFT, LPB
-		MOV MOTORDRIVER, #000H
-		NOP
-		NOP
+		CJNE A, #CNTLEFT, LPB
+		ACALL PAUSEMOTOR
+		MOV MOTORDRIVER, #06AH
 		SJMP HERE
 	LPB:
-		CJNE A, PLSBACK, LCB
+		CJNE A, #PLSBACK, LCB
+		ACALL PAUSEMOTOR
+		MOV MOTORDRIVER, #0A3H
+		ACALL DELAYPULSE
 		MOV MOTORDRIVER, #000H
-		NOP
-		NOP
 		SJMP HERE
 	LCB:
-		CJNE A, CNTBACK, LSH
-		MOV MOTORDRIVER, #000H
-		NOP
-		NOP
+		CJNE A, #CNTBACK, LSH
+		ACALL PAUSEMOTOR
+		MOV MOTORDRIVER, #0A3H
 		SJMP HERE
 	LSH:
-		CJNE A, SHUTDOWN, HERE
-		MOV MOTORDRIVER, #000H
-		NOP
-		NOP
-		CLR RELAY
-	
-
-	SJMP HERE
+		CJNE A, #SHUTDOWN, HERE
+		CLR EA						; Stop receiving further comments
+		ACALL PAUSEMOTOR			; Stop motor operation
+		ACALL DELAY2MIN				; Wait for raspberry pi to shut-down
+		CLR RELAY					; Turn of relay
+		ACALL DELAYPULSE			; Wait for 3 seconds and self kill
+		ACALL DELAYPULSE
+		ACALL DELAYPULSE
 
 END

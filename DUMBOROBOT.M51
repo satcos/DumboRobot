@@ -1,4 +1,4 @@
-LX51 CODE BANKING LINKER/LOCATOR V5.01.14        07/04/15  18:17:10  PAGE  1
+LX51 CODE BANKING LINKER/LOCATOR V5.01.14        07/19/15  12:19:14  PAGE  1
 WIN32 LX51 CODE BANKING LINKER/LOCATOR V5.01.14,  INVOKED BY:
 LX51 d:\program files\ride\workspace\dumborobot\physicaldriver.obj TO(d:\prog&
 ram files\ride\workspace\dumborobot\dumborobot.AOF) PR(d:\program files\ride\&
@@ -22,17 +22,18 @@ PHYSICALDRIVER)
     * * * * * * *   DATA/IDATA    M E M O R Y   * * * * * * *
     REG      0000H      0008H     ABSOLUTE       "REG BANK 0"
              0008H      0018H                    *** GAP ***
-    DATA     0020H      0004H     ABSOLUTE       
+    DATA     0020H      0002H     ABSOLUTE       
 
     * * * * * * *   CODE          M E M O R Y   * * * * * * *
     CODE     0000H      0003H     ABSOLUTE       
-    CODE     0003H      0085H     ABSOLUTE       
+             0003H      0010H                    *** GAP ***
+    CODE     0013H      00F0H     ABSOLUTE       
 
 EXECUTABLE SUMMARY:
 -------------------
-    Total INTERNAL RAM storage requirement:  000CH (12)
+    Total INTERNAL RAM storage requirement:  000AH (10)
     Total EXTERNAL RAM storage requirement:  0000H (0)
-    Total     CODE     storage requirement:  0088H (136)
+    Total     CODE     storage requirement:  00F3H (243)
 Note:  Summary does not include dynamic stack requirements
 
 
@@ -51,53 +52,61 @@ ICALDRIVER)
     -----              ----               ----
 
 	-------            MODULE             PHYSICALDRIVER
+	C:005EH            SYMBOL             D2ML1
 	D:0082H            SYMBOL             DPL
 	D:0080H            SYMBOL             P0
-	D:0023H            SYMBOL             OLDTOGGLE
-	B:0001H            SYMBOL             TOGGLEBIT
+	C:00B6H            SYMBOL             LCR
 	D:0090H            SYMBOL             P1
-	C:0034H            SYMBOL             READADDRESS
+	C:008EH            SYMBOL             LPF
 	D:00F0H            SYMBOL             B
 	D:00A0H            SYMBOL             P2
-	C:0006H            SYMBOL             RECEIVE
+	C:0016H            SYMBOL             RECEIVE
 	B:00BCH            SYMBOL             PS
 	D:0081H            SYMBOL             SP
 	D:00B0H            SYMBOL             P3
-	C:0086H            SYMBOL             HERE
+	C:007FH            SYMBOL             HERE
 	B:00B4H            SYMBOL             T0
 	B:00D6H            SYMBOL             AC
-	C:0075H            SYMBOL             MAIN
-	B:009CH            SYMBOL             REN
-LX51 CODE BANKING LINKER/LOCATOR V5.01.14          07/04/15  18:17:10  PAGE  2
+	C:005CH            SYMBOL             DELAY2MIN
+LX51 CODE BANKING LINKER/LOCATOR V5.01.14          07/19/15  12:19:14  PAGE  2
 
+	C:0063H            SYMBOL             MAIN
+	B:009CH            SYMBOL             REN
 	B:00B5H            SYMBOL             T1
 	B:00D2H            SYMBOL             OV
 	B:00AFH            SYMBOL             EA
+	C:00F2H            SYMBOL             LSH
 	D:00E0H            SYMBOL             ACC
+	C:00C0H            SYMBOL             LPL
+	B:0009H            SYMBOL             NEWCOMMAND
 	B:00B6H            SYMBOL             WR
 	B:00A9H            SYMBOL             ET0
-	D:0021H            SYMBOL             ADDRESSPLUS
-	B:0002H            SYMBOL             NEW
+	B:000AH            SYMBOL             NEW
 	B:00ABH            SYMBOL             ET1
 	B:008DH            SYMBOL             TF0
 	B:008FH            SYMBOL             TF1
+	C:004EH            SYMBOL             LOOP2
 	B:009AH            SYMBOL             RB8
 	D:008CH            SYMBOL             TH0
-	D:0020H            SYMBOL             FLAGS
+	C:0050H            SYMBOL             LOOP3
+	D:0021H            SYMBOL             FLAGS
 	B:00A8H            SYMBOL             EX0
 	B:0088H            SYMBOL             IT0
 	D:008DH            SYMBOL             TH1
+	C:00A7H            SYMBOL             LPR
 	B:009BH            SYMBOL             TB8
 	B:00B0H            SYMBOL             RXD
 	B:00AAH            SYMBOL             EX1
 	B:008AH            SYMBOL             IT1
 	D:00A8H            SYMBOL             IE
+	C:0028H            SYMBOL             PAUSEMOTOR
 	B:009FH            SYMBOL             SM0
 	B:00B1H            SYMBOL             TXD
 	B:00D0H            SYMBOL             P
 	D:0099H            SYMBOL             SBUF
 	D:008AH            SYMBOL             TL0
 	D:0087H            SYMBOL             PCON
+	C:00E8H            SYMBOL             LCB
 	B:009EH            SYMBOL             SM1
 	D:008BH            SYMBOL             TL1
 	B:009DH            SYMBOL             SM2
@@ -105,6 +114,8 @@ ICALDRIVER)
 	B:00B9H            SYMBOL             PT0
 	D:0089H            SYMBOL             TMOD
 	D:0088H            SYMBOL             TCON
+	C:009DH            SYMBOL             LCF
+	C:005BH            SYMBOL             EXITDELALY
 	B:00BBH            SYMBOL             PT1
 	B:00D3H            SYMBOL             RS0
 	B:00B7H            SYMBOL             RD
@@ -112,97 +123,139 @@ ICALDRIVER)
 	B:00D4H            SYMBOL             RS1
 	B:00D5H            SYMBOL             F0
 	B:008EH            SYMBOL             TR1
+	C:004CH            SYMBOL             DELAYPULSE
 	B:00B8H            SYMBOL             PX0
 	B:00ACH            SYMBOL             ES
-	C:0072H            SYMBOL             SKIPTOGGLE
 	B:00BAH            SYMBOL             PX1
 	D:00B8H            SYMBOL             IP
 	D:00D0H            SYMBOL             PSW
-	C:004EH            SYMBOL             READCOMMAND
+	C:00CFH            SYMBOL             LCL
 	B:0098H            SYMBOL             RI
 	B:00B2H            SYMBOL             INT0
 	B:00B3H            SYMBOL             INT1
 	B:00D7H            SYMBOL             CY
 	D:0083H            SYMBOL             DPH
 	B:0099H            SYMBOL             TI
+	C:00D9H            SYMBOL             LPB
 	B:0089H            SYMBOL             IE0
-	C:0031H            SYMBOL             CONTINUEREADING
-	D:0022H            SYMBOL             COMMAND
-	B:008BH            SYMBOL             IE1
-	C:0000H            LINE#              38
-	C:0003H            LINE#              40
-	C:0005H            LINE#              41
-	C:0006H            LINE#              57
-	C:0008H            LINE#              58
-	C:0009H            LINE#              61
-	C:000BH            LINE#              62
-	C:000DH            LINE#              63
-	C:000FH            LINE#              64
-LX51 CODE BANKING LINKER/LOCATOR V5.01.14          07/04/15  18:17:10  PAGE  3
+LX51 CODE BANKING LINKER/LOCATOR V5.01.14          07/19/15  12:19:14  PAGE  3
 
-	C:0010H            LINE#              65
-	C:0012H            LINE#              66
-	C:0014H            LINE#              69
+	D:0020H            SYMBOL             COMMAND
+	B:008BH            SYMBOL             IE1
+	C:0000H            LINE#              56
+	C:0013H            LINE#              58
+	C:0015H            LINE#              59
 	C:0016H            LINE#              70
-	C:0018H            LINE#              71
-	C:001AH            LINE#              72
-	C:001BH            LINE#              73
-	C:001DH            LINE#              74
-	C:001FH            LINE#              77
-	C:0021H            LINE#              78
-	C:0023H            LINE#              79
-	C:0025H            LINE#              80
-	C:0026H            LINE#              81
-	C:0028H            LINE#              82
-	C:002AH            LINE#              87
-	C:002CH            LINE#              88
-	C:002EH            LINE#              89
-	C:0030H            LINE#              90
-	C:0031H            LINE#              97
-	C:0033H            LINE#              98
-	C:0034H            LINE#              100
-	C:0036H            LINE#              101
-	C:0038H            LINE#              102
-	C:003AH            LINE#              103
-	C:003BH            LINE#              104
-	C:003DH            LINE#              105
-	C:003FH            LINE#              106
-	C:0041H            LINE#              107
-	C:0043H            LINE#              108
-	C:0045H            LINE#              109
-	C:0047H            LINE#              110
-	C:0049H            LINE#              111
-	C:004BH            LINE#              114
-	C:004DH            LINE#              115
-	C:004EH            LINE#              117
-	C:0050H            LINE#              118
-	C:0052H            LINE#              119
-	C:0054H            LINE#              120
-	C:0055H            LINE#              121
-	C:0057H            LINE#              122
-	C:0059H            LINE#              123
-	C:005BH            LINE#              124
-	C:005DH            LINE#              125
-	C:005FH            LINE#              126
-	C:0061H            LINE#              127
-	C:0063H            LINE#              128
-	C:0065H            LINE#              131
-	C:0067H            LINE#              132
-	C:006AH            LINE#              134
-	C:006CH            LINE#              135
-	C:006EH            LINE#              136
-	C:0070H            LINE#              146
-	C:0072H            LINE#              150
-	C:0074H            LINE#              153
-	C:0075H            LINE#              160
-	C:0077H            LINE#              161
-	C:0079H            LINE#              162
-	C:007BH            LINE#              163
-	C:007DH            LINE#              165
-	C:007FH            LINE#              166
-	C:0081H            LINE#              167
-	C:0083H            LINE#              169
-	C:0086H            LINE#              172
+	C:0017H            LINE#              73
+	C:0019H            LINE#              74
+	C:001AH            LINE#              77
+	C:001CH            LINE#              78
+	C:001DH            LINE#              81
+	C:001FH            LINE#              82
+	C:0020H            LINE#              85
+	C:0022H            LINE#              86
+	C:0023H            LINE#              89
+	C:0025H            LINE#              91
+	C:0027H            LINE#              94
+	C:0028H            LINE#              100
+	C:002BH            LINE#              101
+	C:002DH            LINE#              102
+	C:002FH            LINE#              103
+	C:0031H            LINE#              104
+	C:0033H            LINE#              105
+	C:0035H            LINE#              106
+	C:0037H            LINE#              107
+	C:0039H            LINE#              108
+	C:003BH            LINE#              109
+	C:003DH            LINE#              110
+	C:003FH            LINE#              111
+	C:0041H            LINE#              112
+	C:0043H            LINE#              113
+	C:0045H            LINE#              114
+	C:0047H            LINE#              115
+	C:0049H            LINE#              116
+	C:004BH            LINE#              117
+	C:004CH            LINE#              125
+	C:004EH            LINE#              127
+	C:0050H            LINE#              129
+	C:0052H            LINE#              130
+	C:0054H            LINE#              131
+	C:0057H            LINE#              132
+	C:0059H            LINE#              133
+	C:005BH            LINE#              135
+	C:005CH            LINE#              141
+	C:005EH            LINE#              143
+	C:0060H            LINE#              144
+	C:0062H            LINE#              145
+	C:0063H            LINE#              156
+	C:0065H            LINE#              157
+	C:0067H            LINE#              158
+	C:0069H            LINE#              159
+	C:006BH            LINE#              160
+	C:006DH            LINE#              161
+	C:006FH            LINE#              162
+	C:0071H            LINE#              163
+	C:0074H            LINE#              166
+	C:0076H            LINE#              167
+	C:0079H            LINE#              170
+	C:007BH            LINE#              171
+	C:007DH            LINE#              172
+	C:007FH            LINE#              178
+	C:0082H            LINE#              188
+	C:0084H            LINE#              189
+	C:0086H            LINE#              191
+	C:0089H            LINE#              192
+	C:008CH            LINE#              193
+	C:008EH            LINE#              195
+	C:0091H            LINE#              196
+LX51 CODE BANKING LINKER/LOCATOR V5.01.14          07/19/15  12:19:14  PAGE  4
+
+	C:0093H            LINE#              197
+	C:0096H            LINE#              198
+	C:0098H            LINE#              199
+	C:009BH            LINE#              200
+	C:009DH            LINE#              202
+	C:00A0H            LINE#              203
+	C:00A2H            LINE#              204
+	C:00A5H            LINE#              205
+	C:00A7H            LINE#              207
+	C:00AAH            LINE#              208
+	C:00ACH            LINE#              209
+	C:00AFH            LINE#              210
+	C:00B1H            LINE#              211
+	C:00B4H            LINE#              212
+	C:00B6H            LINE#              214
+	C:00B9H            LINE#              215
+	C:00BBH            LINE#              216
+	C:00BEH            LINE#              217
+	C:00C0H            LINE#              219
+	C:00C3H            LINE#              220
+	C:00C5H            LINE#              221
+	C:00C8H            LINE#              222
+	C:00CAH            LINE#              223
+	C:00CDH            LINE#              224
+	C:00CFH            LINE#              226
+	C:00D2H            LINE#              227
+	C:00D4H            LINE#              228
+	C:00D7H            LINE#              229
+	C:00D9H            LINE#              231
+	C:00DCH            LINE#              232
+	C:00DEH            LINE#              233
+	C:00E1H            LINE#              234
+	C:00E3H            LINE#              235
+	C:00E6H            LINE#              236
+	C:00E8H            LINE#              238
+	C:00EBH            LINE#              239
+	C:00EDH            LINE#              240
+	C:00F0H            LINE#              241
+	C:00F2H            LINE#              243
+	C:00F5H            LINE#              244
+	C:00F7H            LINE#              245
+	C:00F9H            LINE#              246
+	C:00FBH            LINE#              247
+	C:00FDH            LINE#              248
+	C:00FFH            LINE#              249
+	C:0101H            LINE#              250
 	-------            ENDMOD             PHYSICALDRIVER
 
 LINK/LOCATE RUN COMPLETE,  NO ERROR FOUND.

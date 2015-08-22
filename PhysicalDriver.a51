@@ -24,11 +24,15 @@ SHUTDOWN	EQU	00FH
 ; ===============================================================================
 ; Port Declaration
 ; ===============================================================================
+TESTPORT 	EQU		P0		; Motors are connected to this port through bridge connection
+
 RELAY		EQU		P1.4	; Raspberry pi turn on relay
 
 MOTORDRIVER EQU		P2		; Motors are connected to this port through bridge connection
 
 LED			EQU		P3.1	; Red Led indicator
+IRINPUT		EQU		P3.2	; Port3, Bit2 is used as input. The demodulated signal
+							; with active low level is connected to this pin
 INPUT		EQU		P3.3	; Port3, Bit3 is used as input ready interrupt.	Pi Pin 11
 MSBIT1		EQU		P3.6	; 4 data bits. Pi Pin 12
 MSBIT2		EQU		P3.4	; Pi Pin 13
@@ -43,22 +47,151 @@ DSEG
 ; Bit addressable memory
 ORG 20H
 	COMMAND:		DS		1			; 4 bit command, 8 bits are allocated
+	ADDRESSPLUS:	DS		1			; S2, Toggle and 5 bit address
+	OLDTOGGLE:		DS		1			; S2, Toggle and 5 bit address
 	FLAGS:			DS		1
 	NEWCOMMAND		BIT		FLAGS.1		; Toggle represents and new command
-	NEW				BIT		FLAGS.2		; Bit set when a new command has been received
+	TOGGLEBIT		BIT		FLAGS.2		; Toggles with every new keystroke
 	
-						
+
 ; ===============================================================================
 ; Code begins here
 ; ===============================================================================
 CSEG            
 ORG	0000H							; Reset
 	JMP MAIN
-ORG 0013H  							; External Interrupt 0
+ORG 0003H  							; External Interrupt 0
+	ACALL RECEIVEIR
+	RETI
+ORG	000BH							; Timer 0 interrupt
+	ACALL BLINKLED
+	RETI
+ORG 0013H  							; External Interrupt 1
 	ACALL RECEIVE
 	RETI
 
+
+; ===============================================================================
+; RECEIVEIR: Interrupt 0 routine 
+; Receives signal from IR remove
+; Bit Sequence
+; S1, S2, Toggle, 5 Bit Address, 6 Bit Command
+; Total duration of a bit 1.778ms
+; Quarter of the bit is 0.4445ms
+; Instructions MOV R1, #222 and DJNZ R1, $ need 0.445 ms 
+; which is approximately 1/4th of the bit length
+; Crystal frequency is 12MHz
+; ===============================================================================
+RECEIVEIR:
+	; Disable external interrupt 0 as transition of data pin triggers many calls
+	CLR EX0
 	
+	CLR A
+	; Already half of the s1 bit is spent, wait for the 2nd half of the bit
+	MOV R4, #222
+	DJNZ R4, $
+	MOV C, IRINPUT		
+	RLC A
+	MOV R4, #220
+	DJNZ R4, $
+	
+	; First Half of Start 2 bit
+	MOV R4, #222
+	DJNZ R4, $
+	MOV C, IRINPUT
+	RLC A
+	MOV R4, #220
+	DJNZ R4, $
+	
+	; Second Half of Start 2 bit
+	MOV R4, #222
+	DJNZ R4, $
+	MOV C, IRINPUT
+	RLC A
+	MOV R4, #220
+	DJNZ R4, $
+	
+	; Check for noise input
+	; If the accumulator value doesn't match with the expected value,
+	; its a noise and hence exit
+	XRL A, #000H
+	JZ CONTINUEREADING
+	SETB EX0
+	RET
+	
+	CONTINUEREADING:
+	; Store toggle bit and 5 bit address in ADDRESSPLUS location
+	; Loop through 6 times to read toggle and 5 bit address
+	; Wait 1/4 of the bit and read bit value
+	; then wast 3/4th of time
+	MOV R5, #006H
+	CLR A
+	READADDRESS:
+		MOV R4, #222
+		DJNZ R4, $
+		MOV R4, #222
+		DJNZ R4, $
+		MOV R4, #222
+		DJNZ R4, $
+		MOV C, IRINPUT
+		RLC A
+		MOV R4, #220
+		DJNZ R4, $	
+		DJNZ R5, READADDRESS
+	MOV ADDRESSPLUS, A
+	
+	; Loop through 6 times and read command
+	MOV R5, #006H
+	CLR A
+	READCOMMAND:
+		MOV R4, #222
+		DJNZ R4, $
+		MOV R4, #222
+		DJNZ R4, $
+		MOV R4, #222
+		DJNZ R4, $
+		MOV C, IRINPUT
+		RLC A
+		MOV R4, #220
+		DJNZ R4, $
+		DJNZ R5, READCOMMAND
+	MOV COMMAND, A
+	
+	; Check received command is new
+	MOV A, ADDRESSPLUS
+	ANL A, #020H
+	XRL A, OLDTOGGLE
+	JZ SKIPTOGGLE
+	MOV OLDTOGGLE, A		;New command is received
+	SETB NEWCOMMAND
+	
+	SKIPTOGGLE:
+	
+	; Exit routine
+	SETB EX0
+	RET
+	
+; ===============================================================================
+; BLINKLED: Timer 0 Interrupt routine 
+; Turns on led after 20 iterations
+; ===============================================================================
+BLINKLED:
+
+	CLR TR0
+	CLR TF0
+	DJNZ R6, BLL1
+	CLR LED									; After 20 iterations, turn on the LED and exit the function
+	MOV R6, #014H
+	MOV TH0, #03CH
+	MOV TL0, #0B0H
+	RET
+	
+	BLL1:
+	MOV TH0, #03CH
+	MOV TL0, #0B0H
+	SETB TR0								;Start the Timer0
+	
+	RET
 ; ===============================================================================
 ; RECEIVE: Interrupt 1 routine 
 ; INPUT falling from 1 to zero indicated availability of new command
@@ -153,22 +286,36 @@ MAIN:
 	; ===========================================================================
 	; Initialization
 	; Port
-	CLR LED
-	SETB INPUT
-	SETB MSBIT1
-	SETB MSBIT2
-	SETB MSBIT3
-	SETB MSBIT4
 	SETB RELAY
+	CLR LED
+	SETB IRINPUT
+	CLR MSBIT1
+	CLR MSBIT2
+	CLR MSBIT3
+	CLR MSBIT4
+	CLR INPUT
+	
+	MOV TESTPORT, #000H
 	MOV MOTORDRIVER, #000H
 	
-	; Storage
+	; Reset Storage
 	CLR NEWCOMMAND
-	MOV COMMAND, #0000H
+	MOV COMMAND, #000H
 	
 	; Interrupt
-	SETB EX1						; Enable external Interrupt1
+	; External interrupt
+	SETB EX0						; Enable external Interrupt0	IR Input
+	SETB IT0						; Triggered by a high to low transition
+	SETB EX1						; Enable external Interrupt1	RPi Input
 	SETB IT1						; Triggered by a high to low transition
+	
+	;Setting Timer 0 for LED blink when new command is received
+	MOV TMOD, #011H
+	MOV R6, #014H
+	MOV TH0, #03CH
+	MOV TL0, #0B0H
+	SETB ET0
+	
 	SETB EA							; Enable global interrupt
 	; ===========================================================================
 	
@@ -186,7 +333,13 @@ MAIN:
 	; #06AH		Left
 	
 	CLR NEWCOMMAND
+	
+	; Start timer 0 for led blink
+	SETB LED								; Stop the led
+	SETB TR0								; Start the Timer0
+	
 	MOV A, COMMAND
+	MOV TESTPORT, A
 	
 		CJNE A, #CMDSTOP, LPF
 		MOV MOTORDRIVER, #000H
@@ -241,7 +394,8 @@ MAIN:
 		SJMP HERE
 	LSH:
 		CJNE A, #SHUTDOWN, HERE
-		CLR EA						; Stop receiving further comments
+		CLR EX0						; Stop receiving further comments
+		CLR EX1						; Stop receiving further comments
 		ACALL PAUSEMOTOR			; Stop motor operation
 		ACALL DELAY2MIN				; Wait for raspberry pi to shut-down
 		CLR RELAY					; Turn of relay

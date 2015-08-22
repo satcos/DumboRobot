@@ -391,9 +391,9 @@ App Number=1
 Name=dumborobot.aof
 Type=0
 Tool Ref=LX51
-Info Code=244
+Info Code=415
 Info XData=0
-Info Data=80
+Info Data=96
 Target Ref=80C51
 Format Ref=OMF51
 Use Local=0
@@ -405,11 +405,11 @@ Tool Ref=MA51
 Format Ref=
 Nb Dep=1
 Dependance=D:\PROGRAM FILES\RIDE\INC\REG_51.PDF
-Info Code=244
+Info Code=415
 Info Const=0
 Info XData=0
 Info PData=0
-Info Data=2
+Info Data=4
 Info IData=0
 Info Bit=0
 Use Local=0
@@ -438,10 +438,10 @@ Nb Dim Views=13
 3 (0,0-0,0)
 4 (0,0-0,0)
 5 (0,0-0,0)
-6 (0,0-0,0)
+6 (132,174-568,548)
 7 (0,0-0,0)
 8 (0,0-0,0)
-9 (0,0-0,0)
+9 (797,22-1682,663)
 10 (0,0-0,0)
 11 (0,0-0,0)
 12 (0,0-0,0)

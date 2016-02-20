@@ -1,4 +1,4 @@
-MACRO ASSEMBLER PHYSICALDRIVER                              07/26/15 20:11:45 PAGE     1
+MACRO ASSEMBLER PHYSICALDRIVER                              08/30/15 11:15:15 PAGE     1
 
 
 WIN32 MACRO ASSEMBLER MA51 V6.04.07OBJECT MODULE PLACED IN D:\PROGRAM FILES\RIDE\WORKSPACE\DUMBOROBOT\PHYSICALDRIVER.OBJ
@@ -26,392 +26,427 @@ LOC     OBJ           LINE    SOURCE
   0006                  97     CNTLEFT		EQU	006H
   0007                  98     PLSBACK		EQU	007H
   0008                  99     CNTBACK		EQU	008H
-  000F                 100     SHUTDOWN	EQU	00FH
-                       101     
-                       102     ; ===============================================================================
-                       103     ; Port Declaration
-                       104     ; ===============================================================================
-  0080                 105     TESTPORT 	EQU		P0		; Motors are connected to this port through bridge connection
-                       106     
-  0094                 107     RELAY		EQU		P1.4	; Raspberry pi turn on relay
-                       108     
-  00A0                 109     MOTORDRIVER EQU		P2		; Motors are connected to this port through bridge connection
-                       110     
-  00B1                 111     LED			EQU		P3.1	; Red Led indicator
-  00B2                 112     IRINPUT		EQU		P3.2	; Port3, Bit2 is used as input. The demodulated signal
-                       113     							; with active low level is connected to this pin
-  00B3                 114     INPUT		EQU		P3.3	; Port3, Bit3 is used as input ready interrupt.	Pi Pin 11
-  00B6                 115     MSBIT1		EQU		P3.6	; 4 data bits. Pi Pin 12
-  00B4                 116     MSBIT2		EQU		P3.4	; Pi Pin 13
-  00B5                 117     MSBIT3		EQU		P3.5	; Pi Pin 15
-  00B7                 118     MSBIT4		EQU		P3.7	; Pi Pin 16
-                       119     
-                       120     ; ===============================================================================
-                       121     ; Data Declaration
-                       122     ; ===============================================================================
-------                 123     DSEG
-                       124     ; This is internal data memory
-                       125     ; Bit addressable memory
-  0020                 126     ORG 20H
-0020                   127     	COMMAND: 		DS		1			; 4 bit command, 8 bits are allocated
-0021                   128     	ADDRESSPLUS: 	DS		1			; S2, Toggle and 5 bit address
-0022                   129     	OLDTOGGLE: 		DS		1			; S2, Toggle and 5 bit address
-0023                   130     	FLAGS: 			DS		1
-  0019                 131     	NEWCOMMAND		BIT		FLAGS.1		; Toggle represents and new command
-  001A                 132     	TOGGLEBIT		BIT		FLAGS.2		; Toggles with every new keystroke
-                       133     	
-                       134     
-                       135     ; ===============================================================================
-                       136     ; Code begins here
-                       137     ; ===============================================================================
-------                 138     CSEG            
-  0000                 139     ORG	0000H							; Reset
-0000    0200EB         140     	JMP MAIN
-  0003                 141     ORG 0003H  							; External Interrupt 0
-0003    1116           142     	ACALL RECEIVEIR
-0005    32             143     	RETI
-  000B                 144     ORG	000BH							; Timer 0 interrupt
-000B    1184           145     	ACALL BLINKLED
-000D    32             146     	RETI
-  0013                 147     ORG 0013H  							; External Interrupt 1
-0013    119E           148     	ACALL RECEIVE
-0015    32             149     	RETI
-                       150     
-                       151     
-                       152     ; ===============================================================================
-                       153     ; RECEIVEIR: Interrupt 0 routine 
-                       154     ; Receives signal from IR remove
-                       155     ; Bit Sequence
-                       156     ; S1, S2, Toggle, 5 Bit Address, 6 Bit Command
-                       157     ; Total duration of a bit 1.778ms
-                       158     ; Quarter of the bit is 0.4445ms
-                       159     ; Instructions MOV R1, #222 and DJNZ R1, $ need 0.445 ms 
-                       160     ; which is approximately 1/4th of the bit length
-                       161     ; Crystal frequency is 12MHz
-                       162     ; ===============================================================================
-                       163     RECEIVEIR: 
-                       164     	; Disable external interrupt 0 as transition of data pin triggers many calls
-0016    C2A8           165     	CLR EX0
-                       166     	
-0018    E4             167     	CLR A
-                       168     	; Already half of the s1 bit is spent, wait for the 2nd half of the bit
-0019    7CDE           169     	MOV R4, #222
-001B    DCFE           170     	DJNZ R4, $
-001D    A2B2           171     MOV C , 178 
-001F    33             172     	RLC A
-0020    7CDC           173     	MOV R4, #220
-0022    DCFE           174     	DJNZ R4, $
-                       175     	
-                       176     	; First Half of Start 2 bit
-0024    7CDE           177     	MOV R4, #222
-0026    DCFE           178     	DJNZ R4, $
-0028    A2B2           179     MOV C , 178 
-002A    33             180     	RLC A
-002B    7CDC           181     	MOV R4, #220
-002D    DCFE           182     	DJNZ R4, $
-                       183     	
-                       184     	; Second Half of Start 2 bit
-002F    7CDE           185     	MOV R4, #222
-0031    DCFE           186     	DJNZ R4, $
-0033    A2B2           187     MOV C , 178 
-0035    33             188     	RLC A
-0036    7CDC           189     	MOV R4, #220
-0038    DCFE           190     	DJNZ R4, $
-                       191     	
-                       192     	; Check for noise input
-                       193     	; If the accumulator value doesn't match with the expected value,
-                       194     	; its a noise and hence exit
-003A    6400           195     	XRL A, #000H
-003C    6003           196     	JZ CONTINUEREADING
-003E    D2A8           197     	SETB EX0
-0040    22             198     	RET
-                       199     	
-                       200     	CONTINUEREADING: 
-                       201     	; Store toggle bit and 5 bit address in ADDRESSPLUS location
-                       202     	; Loop through 6 times to read toggle and 5 bit address
-                       203     	; Wait 1/4 of the bit and read bit value
-                       204     	; then wast 3/4th of time
-0041    7D06           205     	MOV R5, #006H
-0043    E4             206     	CLR A
-                       207     	READADDRESS: 
-0044    7CDE           208     		MOV R4, #222
-0046    DCFE           209     		DJNZ R4, $
-0048    7CDE           210     		MOV R4, #222
-004A    DCFE           211     		DJNZ R4, $
-004C    7CDE           212     		MOV R4, #222
-004E    DCFE           213     		DJNZ R4, $
-0050    A2B2           214     MOV C , 178 
-0052    33             215     		RLC A
-0053    7CDC           216     		MOV R4, #220
-0055    DCFE           217     		DJNZ R4, $	
-0057    DDEB           218     		DJNZ R5, READADDRESS
-0059    F521           219     	MOV ADDRESSPLUS, A
-                       220     	
-                       221     	; Loop through 6 times and read command
-005B    7D06           222     	MOV R5, #006H
-005D    E4             223     	CLR A
-                       224     	READCOMMAND: 
-005E    7CDE           225     		MOV R4, #222
-0060    DCFE           226     		DJNZ R4, $
-0062    7CDE           227     		MOV R4, #222
-0064    DCFE           228     		DJNZ R4, $
-0066    7CDE           229     		MOV R4, #222
-0068    DCFE           230     		DJNZ R4, $
-006A    A2B2           231     MOV C , 178 
-006C    33             232     		RLC A
-006D    7CDC           233     		MOV R4, #220
-006F    DCFE           234     		DJNZ R4, $
-0071    DDEB           235     		DJNZ R5, READCOMMAND
-0073    F520           236     	MOV COMMAND, A
-                       237     	
-                       238     	; Check received command is new
-0075    E521           239     	MOV A, ADDRESSPLUS
-0077    5420           240     	ANL A, #020H
-0079    6522           241     	XRL A, OLDTOGGLE
-007B    6004           242     	JZ SKIPTOGGLE
-007D    F522           243     	MOV OLDTOGGLE, A		;New command is received
-007F    D219           244     	SETB NEWCOMMAND
-                       245     	
-                       246     	SKIPTOGGLE: 
-                       247     	
-                       248     	; Exit routine
-0081    D2A8           249     	SETB EX0
-0083    22             250     	RET
+  0009                 100     FRONTDRV	EQU	009H
+  000A                 101     BACKTDRV	EQU	00AH
+  000B                 102     POWERTDRV	EQU	00BH
+  000F                 103     SHUTDOWN	EQU	00FH
+                       104     
+                       105     ; ===============================================================================
+                       106     ; Port Declaration
+                       107     ; ===============================================================================
+  0080                 108     TESTPORT 	EQU		P0		; Motors are connected to this port through bridge connection
+                       109     
+  0094                 110     RELAY		EQU		P1.4	; Raspberry pi turn on relay
+                       111     
+  00A0                 112     MOTORDRIVER EQU		P2		; Motors are connected to this port through bridge connection
+                       113     
+  00B1                 114     LED			EQU		P3.1	; Red Led indicator
+  00B2                 115     IRINPUT		EQU		P3.2	; Port3, Bit2 is used as input. The demodulated signal
+                       116     							; with active low level is connected to this pin
+  00B3                 117     INPUT		EQU		P3.3	; Port3, Bit3 is used as input ready interrupt.	Pi Pin 11
+  00B6                 118     MSBIT1		EQU		P3.6	; 4 data bits. Pi Pin 12
+  00B4                 119     MSBIT2		EQU		P3.4	; Pi Pin 13
+  00B5                 120     MSBIT3		EQU		P3.5	; Pi Pin 15
+  00B7                 121     MSBIT4		EQU		P3.7	; Pi Pin 16
+                       122     
+                       123     ; ===============================================================================
+                       124     ; Data Declaration
+                       125     ; ===============================================================================
+------                 126     DSEG
+                       127     ; This is internal data memory
+                       128     ; Bit addressable memory
+  0020                 129     ORG 20H
+0020                   130     	COMMAND: 		DS		1			; 4 bit command, 8 bits are allocated
+0021                   131     	ADDRESSPLUS: 	DS		1			; S2, Toggle and 5 bit address
+0022                   132     	OLDTOGGLE: 		DS		1			; S2, Toggle and 5 bit address
+0023                   133     	DRIVEMASK: 		DS		1			; MASK for front, back and power drive.
+0024                   134     	FLAGS: 			DS		1
+  0021                 135     	NEWCOMMAND		BIT		FLAGS.1		; Toggle represents and new command
+  0022                 136     	TOGGLEBIT		BIT		FLAGS.2		; Toggles with every new keystroke
+                       137     	
+                       138     
+                       139     ; ===============================================================================
+                       140     ; Code begins here
+                       141     ; ===============================================================================
+------                 142     CSEG            
+  0000                 143     ORG	0000H							; Reset
+0000    0200EB         144     	JMP MAIN
+  0003                 145     ORG 0003H  							; External Interrupt 0
+0003    1116           146     	ACALL RECEIVEIR
+0005    32             147     	RETI
+  000B                 148     ORG	000BH							; Timer 0 interrupt
+000B    1184           149     	ACALL BLINKLED
+000D    32             150     	RETI
+  0013                 151     ORG 0013H  							; External Interrupt 1
+0013    119E           152     	ACALL RECEIVE
+0015    32             153     	RETI
+                       154     
+                       155     
+                       156     ; ===============================================================================
+                       157     ; RECEIVEIR: Interrupt 0 routine 
+                       158     ; Receives signal from IR remove
+                       159     ; Bit Sequence
+                       160     ; S1, S2, Toggle, 5 Bit Address, 6 Bit Command
+                       161     ; Total duration of a bit 1.778ms
+                       162     ; Quarter of the bit is 0.4445ms
+                       163     ; Instructions MOV R1, #222 and DJNZ R1, $ need 0.445 ms 
+                       164     ; which is approximately 1/4th of the bit length
+                       165     ; Crystal frequency is 12MHz
+                       166     ; ===============================================================================
+                       167     RECEIVEIR: 
+                       168     	; Disable external interrupt 0 as transition of data pin triggers many calls
+0016    C2A8           169     	CLR EX0
+                       170     	
+0018    E4             171     	CLR A
+                       172     	; Already half of the s1 bit is spent, wait for the 2nd half of the bit
+0019    7CDE           173     	MOV R4, #222
+001B    DCFE           174     	DJNZ R4, $
+001D    A2B2           175     MOV C , 178 
+001F    33             176     	RLC A
+0020    7CDC           177     	MOV R4, #220
+0022    DCFE           178     	DJNZ R4, $
+                       179     	
+                       180     	; First Half of Start 2 bit
+0024    7CDE           181     	MOV R4, #222
+0026    DCFE           182     	DJNZ R4, $
+0028    A2B2           183     MOV C , 178 
+002A    33             184     	RLC A
+002B    7CDC           185     	MOV R4, #220
+002D    DCFE           186     	DJNZ R4, $
+                       187     	
+                       188     	; Second Half of Start 2 bit
+002F    7CDE           189     	MOV R4, #222
+0031    DCFE           190     	DJNZ R4, $
+0033    A2B2           191     MOV C , 178 
+0035    33             192     	RLC A
+0036    7CDC           193     	MOV R4, #220
+0038    DCFE           194     	DJNZ R4, $
+                       195     	
+                       196     	; Check for noise input
+                       197     	; If the accumulator value doesn't match with the expected value,
+                       198     	; its a noise and hence exit
+003A    6400           199     	XRL A, #000H
+003C    6003           200     	JZ CONTINUEREADING
+003E    D2A8           201     	SETB EX0
+0040    22             202     	RET
+                       203     	
+                       204     	CONTINUEREADING: 
+                       205     	; Store toggle bit and 5 bit address in ADDRESSPLUS location
+                       206     	; Loop through 6 times to read toggle and 5 bit address
+                       207     	; Wait 1/4 of the bit and read bit value
+                       208     	; then wast 3/4th of time
+0041    7D06           209     	MOV R5, #006H
+0043    E4             210     	CLR A
+                       211     	READADDRESS: 
+0044    7CDE           212     		MOV R4, #222
+0046    DCFE           213     		DJNZ R4, $
+0048    7CDE           214     		MOV R4, #222
+004A    DCFE           215     		DJNZ R4, $
+004C    7CDE           216     		MOV R4, #222
+004E    DCFE           217     		DJNZ R4, $
+0050    A2B2           218     MOV C , 178 
+0052    33             219     		RLC A
+0053    7CDC           220     		MOV R4, #220
+0055    DCFE           221     		DJNZ R4, $	
+0057    DDEB           222     		DJNZ R5, READADDRESS
+0059    F521           223     	MOV ADDRESSPLUS, A
+                       224     	
+                       225     	; Loop through 6 times and read command
+005B    7D06           226     	MOV R5, #006H
+005D    E4             227     	CLR A
+                       228     	READCOMMAND: 
+005E    7CDE           229     		MOV R4, #222
+0060    DCFE           230     		DJNZ R4, $
+0062    7CDE           231     		MOV R4, #222
+0064    DCFE           232     		DJNZ R4, $
+0066    7CDE           233     		MOV R4, #222
+0068    DCFE           234     		DJNZ R4, $
+006A    A2B2           235     MOV C , 178 
+006C    33             236     		RLC A
+006D    7CDC           237     		MOV R4, #220
+006F    DCFE           238     		DJNZ R4, $
+0071    DDEB           239     		DJNZ R5, READCOMMAND
+0073    F520           240     	MOV COMMAND, A
+                       241     	
+                       242     	; Check received command is new
+0075    E521           243     	MOV A, ADDRESSPLUS
+0077    5420           244     	ANL A, #020H
+0079    6522           245     	XRL A, OLDTOGGLE
+007B    6004           246     	JZ SKIPTOGGLE
+007D    F522           247     	MOV OLDTOGGLE, A		;New command is received
+007F    D221           248     	SETB NEWCOMMAND
+                       249     	
+                       250     	SKIPTOGGLE: 
                        251     	
-                       252     ; ===============================================================================
-                       253     ; BLINKLED: Timer 0 Interrupt routine 
-                       254     ; Turns on led after 20 iterations
-                       255     ; ===============================================================================
-                       256     BLINKLED: 
-                       257     
-0084    C28C           258     	CLR TR0
-0086    C28D           259     	CLR TF0
-0088    DE0B           260     	DJNZ R6, BLL1
-008A    C2B1           261     CLR 177 
-008C    7E14           262     	MOV R6, #014H
-008E    758C3C         263     	MOV TH0, #03CH
-0091    758AB0         264     	MOV TL0, #0B0H
-0094    22             265     	RET
-                       266     	
-                       267     	BLL1: 
-0095    758C3C         268     	MOV TH0, #03CH
-0098    758AB0         269     	MOV TL0, #0B0H
-009B    D28C           270     	SETB TR0								;Start the Timer0
-                       271     	
-009D    22             272     	RET
-                       273     ; ===============================================================================
-                       274     ; RECEIVE: Interrupt 1 routine 
-                       275     ; INPUT falling from 1 to zero indicated availability of new command
-                       276     ; 4 data bits are read in sequence and stored in COMMAND
+                       252     	; Exit routine
+0081    D2A8           253     	SETB EX0
+0083    22             254     	RET
+                       255     	
+                       256     ; ===============================================================================
+                       257     ; BLINKLED: Timer 0 Interrupt routine 
+                       258     ; Turns on led after 20 iterations
+                       259     ; ===============================================================================
+                       260     BLINKLED: 
+                       261     
+0084    C28C           262     	CLR TR0
+0086    C28D           263     	CLR TF0
+0088    DE0B           264     	DJNZ R6, BLL1
+008A    C2B1           265     CLR 177 
+008C    7E14           266     	MOV R6, #014H
+008E    758C3C         267     	MOV TH0, #03CH
+0091    758AB0         268     	MOV TL0, #0B0H
+0094    22             269     	RET
+                       270     	
+                       271     	BLL1: 
+0095    758C3C         272     	MOV TH0, #03CH
+0098    758AB0         273     	MOV TL0, #0B0H
+009B    D28C           274     	SETB TR0								;Start the Timer0
+                       275     	
+009D    22             276     	RET
                        277     ; ===============================================================================
-                       278     RECEIVE: 
-                       279     	
-                       280     	; Clear accumulator
-009E    E4             281     	CLR A
-                       282     	
-                       283     	; Read Most Significant Bit 1
-009F    A2B6           284     MOV C , 182 
-00A1    33             285     	RLC A
+                       278     ; RECEIVE: Interrupt 1 routine 
+                       279     ; INPUT falling from 1 to zero indicated availability of new command
+                       280     ; 4 data bits are read in sequence and stored in COMMAND
+                       281     ; ===============================================================================
+                       282     RECEIVE: 
+                       283     	
+                       284     	; Clear accumulator
+009E    E4             285     	CLR A
                        286     	
-                       287     	; Read Most Significant Bit 2
-00A2    A2B4           288     MOV C , 180 
-00A4    33             289     	RLC A
+                       287     	; Read Most Significant Bit 1
+009F    A2B6           288     MOV C , 182 
+00A1    33             289     	RLC A
                        290     	
-                       291     	; Read Most Significant Bit 3
-00A5    A2B5           292     MOV C , 181 
-00A7    33             293     	RLC A
+                       291     	; Read Most Significant Bit 2
+00A2    A2B4           292     MOV C , 180 
+00A4    33             293     	RLC A
                        294     	
-                       295     	; Read Most Significant Bit 4
-00A8    A2B7           296     MOV C , 183 
-00AA    33             297     	RLC A
+                       295     	; Read Most Significant Bit 3
+00A5    A2B5           296     MOV C , 181 
+00A7    33             297     	RLC A
                        298     	
-                       299     	; Store the received command in 'COMMAND'
-00AB    F520           300     	MOV COMMAND, A
-                       301     	
-00AD    D219           302     	SETB NEWCOMMAND
-                       303     	
-                       304     	; Exit routine
-00AF    22             305     	RET
-                       306     
-                       307     ; ===============================================================================
-                       308     ; PAUSEMOTOR: Switch off motors for few cycles so that they can be operated in reverse direction
-                       309     ; ===============================================================================
-                       310     PAUSEMOTOR: 
-00B0    75A000         311     MOV 160 , # 000H 
-00B3    7FFF           312     	MOV R7, #0FFH
-00B5    DFFE           313     	DJNZ R7, $
-00B7    7FFF           314     	MOV R7, #0FFH
-00B9    DFFE           315     	DJNZ R7, $
-00BB    7FFF           316     	MOV R7, #0FFH
-00BD    DFFE           317     	DJNZ R7, $
-00BF    7FFF           318     	MOV R7, #0FFH
-00C1    DFFE           319     	DJNZ R7, $
-00C3    7FFF           320     	MOV R7, #0FFH
-00C5    DFFE           321     	DJNZ R7, $
-00C7    7FFF           322     	MOV R7, #0FFH
-00C9    DFFE           323     	DJNZ R7, $
-00CB    7FFF           324     	MOV R7, #0FFH
-00CD    DFFE           325     	DJNZ R7, $
-00CF    7FFF           326     	MOV R7, #0FFH
-00D1    DFFE           327     	DJNZ R7, $
-00D3    22             328     	RET
-                       329     
-                       330     ; ===============================================================================
-                       331     ; DELAYPULSE: Delay for pulse movement.
-                       332     ; 1 second and 51 millisecond
-                       333     ; If new command is received, exit the current loop
+                       299     	; Read Most Significant Bit 4
+00A8    A2B7           300     MOV C , 183 
+00AA    33             301     	RLC A
+                       302     	
+                       303     	; Store the received command in 'COMMAND'
+00AB    F520           304     	MOV COMMAND, A
+                       305     	
+00AD    D221           306     	SETB NEWCOMMAND
+                       307     	
+                       308     	; Exit routine
+00AF    22             309     	RET
+                       310     
+                       311     ; ===============================================================================
+                       312     ; PAUSEMOTOR: Switch off motors for few cycles so that they can be operated in reverse direction
+                       313     ; ===============================================================================
+                       314     PAUSEMOTOR: 
+00B0    75A000         315     MOV 160 , # 000H 
+00B3    7FFF           316     	MOV R7, #0FFH
+00B5    DFFE           317     	DJNZ R7, $
+00B7    7FFF           318     	MOV R7, #0FFH
+00B9    DFFE           319     	DJNZ R7, $
+00BB    7FFF           320     	MOV R7, #0FFH
+00BD    DFFE           321     	DJNZ R7, $
+00BF    7FFF           322     	MOV R7, #0FFH
+00C1    DFFE           323     	DJNZ R7, $
+00C3    7FFF           324     	MOV R7, #0FFH
+00C5    DFFE           325     	DJNZ R7, $
+00C7    7FFF           326     	MOV R7, #0FFH
+00C9    DFFE           327     	DJNZ R7, $
+00CB    7FFF           328     	MOV R7, #0FFH
+00CD    DFFE           329     	DJNZ R7, $
+00CF    7FFF           330     	MOV R7, #0FFH
+00D1    DFFE           331     	DJNZ R7, $
+00D3    22             332     	RET
+                       333     
                        334     ; ===============================================================================
-                       335     DELAYPULSE: 
-00D4    7908           336     	MOV R1, #0008H
-                       337     		LOOP2: 
-00D6    7AFF           338     			MOV R2, #00FFH
-                       339     			LOOP3: 
-00D8    7BFF           340     				MOV R3, #00FFH
-00DA    DBFE           341     				DJNZ R3, $
-00DC    201904         342     				JB NEWCOMMAND, EXITDELALY
-00DF    DAF7           343     				DJNZ R2, LOOP3
-00E1    D9F3           344     			DJNZ R1, LOOP2
-                       345     	EXITDELALY: 
-00E3    22             346     	RET
-                       347     ; ===============================================================================
-                       348     ; DELAY2MIN: Two minute delay,after which raspberry pi power
-                       349     ; will be shut-down.
-                       350     ; ===============================================================================
-                       351     DELAY2MIN: 
-00E4    7F78           352     	MOV R7, #0078H
-                       353     	D2ML1: 
-00E6    11D4           354     		ACALL DELAYPULSE
-00E8    DFFC           355     		DJNZ R7, D2ML1
-00EA    22             356     	RET
-                       357     	
-                       358     ; ===============================================================================
-                       359     ; MAIN: Main program
-                       360     ; Blinks Led to check controller functionality
-                       361     ; ===============================================================================
-                       362     MAIN: 
-                       363     	
-                       364     	; ===========================================================================
-                       365     	; Initialization
-                       366     	; Port
-00EB    D294           367     SETB 148 
-00ED    C2B1           368     CLR 177 
-00EF    D2B2           369     SETB 178 
-00F1    C2B6           370     CLR 182 
-00F3    C2B4           371     CLR 180 
-00F5    C2B5           372     CLR 181 
-00F7    C2B7           373     CLR 183 
-00F9    C2B3           374     CLR 179 
-                       375     	
-00FB    758000         376     MOV 128 , # 000H 
-00FE    75A000         377     MOV 160 , # 000H 
-                       378     	
-                       379     	; Reset Storage
-0101    C219           380     	CLR NEWCOMMAND
-0103    752000         381     	MOV COMMAND, #000H
+                       335     ; DELAYPULSE: Delay for pulse movement.
+                       336     ; 1 second and 51 millisecond
+                       337     ; If new command is received, exit the current loop
+                       338     ; ===============================================================================
+                       339     DELAYPULSE: 
+00D4    7908           340     	MOV R1, #0008H
+                       341     		LOOP2: 
+00D6    7AFF           342     			MOV R2, #00FFH
+                       343     			LOOP3: 
+00D8    7BFF           344     				MOV R3, #00FFH
+00DA    DBFE           345     				DJNZ R3, $
+00DC    202104         346     				JB NEWCOMMAND, EXITDELALY
+00DF    DAF7           347     				DJNZ R2, LOOP3
+00E1    D9F3           348     			DJNZ R1, LOOP2
+                       349     	EXITDELALY: 
+00E3    22             350     	RET
+                       351     ; ===============================================================================
+                       352     ; DELAY2MIN: Two minute delay,after which raspberry pi power
+                       353     ; will be shut-down.
+                       354     ; ===============================================================================
+                       355     DELAY2MIN: 
+00E4    7F78           356     	MOV R7, #0078H
+                       357     	D2ML1: 
+00E6    11D4           358     		ACALL DELAYPULSE
+00E8    DFFC           359     		DJNZ R7, D2ML1
+00EA    22             360     	RET
+                       361     	
+                       362     ; ===============================================================================
+                       363     ; MAIN: Main program
+                       364     ; Blinks Led to check controller functionality
+                       365     ; ===============================================================================
+                       366     MAIN: 
+                       367     	
+                       368     	; ===========================================================================
+                       369     	; Initialization
+                       370     	; Port
+00EB    D294           371     SETB 148 
+00ED    C2B1           372     CLR 177 
+00EF    D2B2           373     SETB 178 
+00F1    C2B6           374     CLR 182 
+00F3    C2B4           375     CLR 180 
+00F5    C2B5           376     CLR 181 
+00F7    C2B7           377     CLR 183 
+00F9    C2B3           378     CLR 179 
+                       379     	
+00FB    758000         380     MOV 128 , # 000H 
+00FE    75A000         381     MOV 160 , # 000H 
                        382     	
-                       383     	; Interrupt
-                       384     	; External interrupt
-0106    D2A8           385     	SETB EX0						; Enable external Interrupt0	IR Input
-0108    D288           386     	SETB IT0						; Triggered by a high to low transition
-010A    D2AA           387     	SETB EX1						; Enable external Interrupt1	RPi Input
-010C    D28A           388     	SETB IT1						; Triggered by a high to low transition
-                       389     	
-                       390     	;Setting Timer 0 for LED blink when new command is received
-010E    758911         391     	MOV TMOD, #011H
-0111    7E14           392     	MOV R6, #014H
-0113    758C3C         393     	MOV TH0, #03CH
-0116    758AB0         394     	MOV TL0, #0B0H
-0119    D2A9           395     	SETB ET0
-                       396     	
-011B    D2AF           397     	SETB EA							; Enable global interrupt
-                       398     	; ===========================================================================
-                       399     	
-                       400     	
-                       401     	; Wait till new command is received
-                       402     	HERE: 
-011D    3019FD         403     	JNB NEWCOMMAND, HERE
+                       383     	; Reset Storage
+0101    C221           384     	CLR NEWCOMMAND
+0103    752000         385     	MOV COMMAND, #000H
+0106    7523FF         386     	MOV DRIVEMASK, #0FFH
+                       387     	
+                       388     	; Interrupt
+                       389     	; External interrupt
+0109    D2A8           390     	SETB EX0						; Enable external Interrupt0	IR Input
+010B    D288           391     	SETB IT0						; Triggered by a high to low transition
+010D    D2AA           392     	SETB EX1						; Enable external Interrupt1	RPi Input
+010F    D28A           393     	SETB IT1						; Triggered by a high to low transition
+                       394     	
+                       395     	;Setting Timer 0 for LED blink when new command is received
+0111    758911         396     	MOV TMOD, #011H
+0114    7E14           397     	MOV R6, #014H
+0116    758C3C         398     	MOV TH0, #03CH
+0119    758AB0         399     	MOV TL0, #0B0H
+011C    D2A9           400     	SETB ET0
+                       401     	
+011E    D2AF           402     	SETB EA							; Enable global interrupt
+                       403     	; ===========================================================================
                        404     	
-                       405     	; Proceed if new command is received
-                       406     	; As we started reading the new command, set off its flag
-                       407     	; #000H		Stop
-                       408     	; #05CH		Forward
-                       409     	; #0A3H		Backward
-                       410     	; #095H		Right
-                       411     	; #06AH		Left
-                       412     	
-0120    C219           413     	CLR NEWCOMMAND
-                       414     	
-                       415     	; Start timer 0 for led blink
-0122    D2B1           416     SETB 177 
-0124    D28C           417     	SETB TR0								; Start the Timer0
-                       418     	
-0126    E520           419     	MOV A, COMMAND
-0128    F580           420     MOV 128 , A 
-                       421     	
-012A    B40005         422     CJNE A , # 0 , LPF 
-012D    75A000         423     MOV 160 , # 000H 
-0130    80EB           424     		SJMP HERE
-                       425     	LPF: 
-0132    B4010C         426     CJNE A , # 1 , LCF 
-0135    11B0           427     		ACALL PAUSEMOTOR
-0137    75A05C         428     MOV 160 , # 05CH 
-013A    11D4           429     		ACALL DELAYPULSE
-013C    75A000         430     MOV 160 , # 000H 
-013F    80DC           431     		SJMP HERE
-                       432     	LCF: 
-0141    B40207         433     CJNE A , # 2 , LPR 
-0144    11B0           434     		ACALL PAUSEMOTOR
-0146    75A05C         435     MOV 160 , # 05CH 
-0149    80D2           436     		SJMP HERE
-                       437     	LPR: 
-014B    B4030C         438     CJNE A , # 3 , LCR 
-014E    11B0           439     		ACALL PAUSEMOTOR
-0150    75A095         440     MOV 160 , # 095H 
-0153    11D4           441     		ACALL DELAYPULSE
-0155    75A000         442     MOV 160 , # 000H 
-0158    80C3           443     		SJMP HERE
-                       444     	LCR: 
-015A    B40407         445     CJNE A , # 4 , LPL 
-015D    11B0           446     		ACALL PAUSEMOTOR
-015F    75A095         447     MOV 160 , # 095H 
-0162    80B9           448     		SJMP HERE
-                       449     	LPL: 
-0164    B4050C         450     CJNE A , # 5 , LCL 
-0167    11B0           451     		ACALL PAUSEMOTOR
-0169    75A06A         452     MOV 160 , # 06AH 
-016C    11D4           453     		ACALL DELAYPULSE
-016E    75A000         454     MOV 160 , # 000H 
-0171    80AA           455     		SJMP HERE
-                       456     	LCL: 
-0173    B40607         457     CJNE A , # 6 , LPB 
-0176    11B0           458     		ACALL PAUSEMOTOR
-0178    75A06A         459     MOV 160 , # 06AH 
-017B    80A0           460     		SJMP HERE
-                       461     	LPB: 
-017D    B4070C         462     CJNE A , # 7 , LCB 
-0180    11B0           463     		ACALL PAUSEMOTOR
-0182    75A0A3         464     MOV 160 , # 0A3H 
-0185    11D4           465     		ACALL DELAYPULSE
-0187    75A000         466     MOV 160 , # 000H 
-018A    8091           467     		SJMP HERE
-                       468     	LCB: 
-018C    B40807         469     CJNE A , # 8 , LSH 
-018F    11B0           470     		ACALL PAUSEMOTOR
-0191    75A0A3         471     MOV 160 , # 0A3H 
-0194    8087           472     		SJMP HERE
-                       473     	LSH: 
-0196    B40F84         474     CJNE A , # 15 , HERE 
-0199    C2A8           475     		CLR EX0						; Stop receiving further comments
-019B    C2AA           476     		CLR EX1						; Stop receiving further comments
-019D    11B0           477     		ACALL PAUSEMOTOR			; Stop motor operation
-019F    11E4           478     		ACALL DELAY2MIN				; Wait for raspberry pi to shut-down
-01A1    C294           479     CLR 148 
-01A3    11D4           480     		ACALL DELAYPULSE			; Wait for 3 seconds and self kill
-01A5    11D4           481     		ACALL DELAYPULSE
-01A7    11D4           482     		ACALL DELAYPULSE
-                       483     
-                       484     END
-MACRO ASSEMBLER PHYSICALDRIVER                              07/26/15 20:11:45 PAGE     0
+                       405     	
+                       406     	; Wait till new command is received
+                       407     	HERE: 
+0120    3021FD         408     	JNB NEWCOMMAND, HERE
+                       409     	
+                       410     	; Proceed if new command is received
+                       411     	; As we started reading the new command, set off its flag
+                       412     	; #000H		Stop
+                       413     	; #05CH		Forward
+                       414     	; #0A3H		Backward
+                       415     	; #095H		Right
+                       416     	; #06AH		Left
+                       417     	
+0123    C221           418     	CLR NEWCOMMAND
+                       419     	
+                       420     	; Start timer 0 for led blink
+0125    D2B1           421     SETB 177 
+0127    D28C           422     	SETB TR0								; Start the Timer0
+                       423     	
+0129    E520           424     	MOV A, COMMAND
+012B    F580           425     MOV 128 , A 
+                       426     	
+012D    B40005         427     CJNE A , # 0 , LPF 
+0130    75A000         428     MOV 160 , # 000H 
+0133    80EB           429     		SJMP HERE
+                       430     	LPF: 
+0135    B4010F         431     CJNE A , # 1 , LCF 
+0138    11B0           432     		ACALL PAUSEMOTOR
+013A    7423           433     		MOV A, #DRIVEMASK
+013C    545C           434     		ANL A, #05CH
+013E    F5A0           435     MOV 160 , A 
+0140    11D4           436     		ACALL DELAYPULSE
+0142    75A000         437     MOV 160 , # 000H 
+0145    80D9           438     		SJMP HERE
+                       439     	LCF: 
+0147    B4020A         440     CJNE A , # 2 , LPR 
+014A    11B0           441     		ACALL PAUSEMOTOR
+014C    7423           442     		MOV A, #DRIVEMASK
+014E    545C           443     		ANL A, #05CH
+0150    F5A0           444     MOV 160 , A 
+0152    80CC           445     		SJMP HERE
+                       446     	LPR: 
+0154    B4030F         447     CJNE A , # 3 , LCR 
+0157    11B0           448     		ACALL PAUSEMOTOR
+0159    7423           449     		MOV A, #DRIVEMASK
+015B    5495           450     		ANL A, #095H
+015D    F5A0           451     MOV 160 , A 
+015F    11D4           452     		ACALL DELAYPULSE
+0161    75A000         453     MOV 160 , # 000H 
+0164    80BA           454     		SJMP HERE
+                       455     	LCR: 
+0166    B4040A         456     CJNE A , # 4 , LPL 
+0169    11B0           457     		ACALL PAUSEMOTOR
+016B    7423           458     		MOV A, #DRIVEMASK
+016D    5495           459     		ANL A, #095H
+016F    F5A0           460     MOV 160 , A 
+0171    80AD           461     		SJMP HERE
+                       462     	LPL: 
+0173    B4050F         463     CJNE A , # 5 , LCL 
+0176    11B0           464     		ACALL PAUSEMOTOR
+0178    7423           465     		MOV A, #DRIVEMASK
+017A    546A           466     		ANL A, #06AH
+017C    F5A0           467     MOV 160 , A 
+017E    11D4           468     		ACALL DELAYPULSE
+0180    75A000         469     MOV 160 , # 000H 
+0183    809B           470     		SJMP HERE
+                       471     	LCL: 
+0185    B4060A         472     CJNE A , # 6 , LPB 
+0188    11B0           473     		ACALL PAUSEMOTOR
+018A    7423           474     		MOV A, #DRIVEMASK
+018C    546A           475     		ANL A, #06AH
+018E    F5A0           476     MOV 160 , A 
+0190    808E           477     		SJMP HERE
+                       478     	LPB: 
+0192    B40710         479     CJNE A , # 7 , LCB 
+0195    11B0           480     		ACALL PAUSEMOTOR
+0197    7423           481     		MOV A, #DRIVEMASK
+0199    54A3           482     		ANL A, #0A3H
+019B    F5A0           483     MOV 160 , A 
+019D    11D4           484     		ACALL DELAYPULSE
+019F    75A000         485     MOV 160 , # 000H 
+01A2    020120         486     		LJMP HERE
+                       487     	LCB: 
+01A5    B4080B         488     CJNE A , # 8 , LFD 
+01A8    11B0           489     		ACALL PAUSEMOTOR
+01AA    7423           490     		MOV A, #DRIVEMASK
+01AC    54A3           491     		ANL A, #0A3H
+01AE    F5A0           492     MOV 160 , A 
+01B0    020120         493     		LJMP HERE
+                       494     	LFD: 
+01B3    B40906         495     CJNE A , # 9 , LBD 
+01B6    75230F         496     		MOV DRIVEMASK, #00FH
+01B9    020120         497     		LJMP HERE
+                       498     	LBD: 
+01BC    B40A06         499     CJNE A , # 10 , LPD 
+01BF    7523F0         500     		MOV DRIVEMASK, #0F0H
+01C2    020120         501     		LJMP HERE
+                       502     	LPD: 
+01C5    B40B06         503     CJNE A , # 11 , LSH 
+01C8    7523FF         504     		MOV DRIVEMASK, #0FFH
+01CB    020120         505     		LJMP HERE
+                       506     	LSH: 
+01CE    B40F10         507     CJNE A , # 15 , COMMANDNOTFOUND 
+01D1    C2A8           508     		CLR EX0						; Stop receiving further comments
+01D3    C2AA           509     		CLR EX1						; Stop receiving further comments
+01D5    11B0           510     		ACALL PAUSEMOTOR			; Stop motor operation
+01D7    11E4           511     		ACALL DELAY2MIN				; Wait for raspberry pi to shut-down
+01D9    C294           512     CLR 148 
+01DB    11D4           513     		ACALL DELAYPULSE			; Wait for 3 seconds and self kill
+01DD    11D4           514     		ACALL DELAYPULSE
+01DF    11D4           515     		ACALL DELAYPULSE
+                       516     	COMMANDNOTFOUND: 
+01E1    020120         517     		LJMP HERE
+                       518     
+                       519     END
+MACRO ASSEMBLER PHYSICALDRIVER                              08/30/15 11:15:15 PAGE     0
 
 
 SYMBOL TABLE LISTING
@@ -420,146 +455,157 @@ SYMBOL TABLE LISTING
 
 N A M E             T Y P E  V A L U E   ATTRIBUTES             REFERENCES
 
-D2ML1. . . . . . .  C ADDR   00E6H   A                          353# 355 
-PLSBACK. . . . . .  N NUMB   0007h                              98# 462 
+LPD. . . . . . . .  C ADDR   01C5H   A                          499 502# 
+D2ML1. . . . . . .  C ADDR   00E6H   A                          357# 359 
+PLSBACK. . . . . .  N NUMB   0007h                              98# 479 
 DPL. . . . . . . .  D ADDR   0082H   A                          16# 
-P0 . . . . . . . .  D ADDR   0080H   A                          8# 105 
-LCR. . . . . . . .  C ADDR   015AH   A                          438 444# 
-TOGGLEBIT. . . . .  B ADDR   0023H.2 A                          132# 
-OLDTOGGLE. . . . .  D ADDR   0022H   A                          129# 241 243 
-P1 . . . . . . . .  D ADDR   0090H   A                          9# 107 
-LPF. . . . . . . .  C ADDR   0132H   A                          422 425# 
-READADDRESS. . . .  C ADDR   0044H   A                          207# 218 
+P0 . . . . . . . .  D ADDR   0080H   A                          8# 108 
+LCR. . . . . . . .  C ADDR   0166H   A                          447 455# 
+TOGGLEBIT. . . . .  B ADDR   0024H.2 A                          136# 
+OLDTOGGLE. . . . .  D ADDR   0022H   A                          132# 245 247 
+P1 . . . . . . . .  D ADDR   0090H   A                          9# 110 
+LPF. . . . . . . .  C ADDR   0135H   A                          427 430# 
+READADDRESS. . . .  C ADDR   0044H   A                          211# 222 
 B. . . . . . . . .  D ADDR   00F0H   A                          14# 
-P2 . . . . . . . .  D ADDR   00A0H   A                          10# 109 
-RECEIVE. . . . . .  C ADDR   009EH   A                          148 278# 
-CNTRIGHT . . . . .  N NUMB   0004h                              95# 445 
+P2 . . . . . . . .  D ADDR   00A0H   A                          10# 112 
+RECEIVE. . . . . .  C ADDR   009EH   A                          152 282# 
+CNTRIGHT . . . . .  N NUMB   0004h                              95# 456 
 PS . . . . . . . .  B ADDR   00B8H.4 A                          57# 
 SP . . . . . . . .  D ADDR   0081H   A                          15# 
-P3 . . . . . . . .  D ADDR   00B0H   A                          11# 111 112 114 115 
-                                                                116 117 118 
-HERE . . . . . . .  C ADDR   011DH   A                          402# 403 424 431 
-                                                                436 443 448 455 460 
-                                                                467 472 474 
-PLSFORWARD . . . .  N NUMB   0001h                              92# 426 
+P3 . . . . . . . .  D ADDR   00B0H   A                          11# 114 115 117 118 
+                                                                119 120 121 
+HERE . . . . . . .  C ADDR   0120H   A                          407# 408 429 438 
+                                                                445 454 461 470 477 
+                                                                486 493 497 501 505 
+                                                                517 
+PLSFORWARD . . . .  N NUMB   0001h                              92# 431 
 RB0. . . . . . . .  N NUMB   0000h                              84# 
 T0 . . . . . . . .  B ADDR   00B0H.4 A                          66# 
 AC . . . . . . . .  B ADDR   00D0H.6 A                          34# 
-DELAY2MIN. . . . .  C ADDR   00E4H   A                          351# 478 
-BLINKLED . . . . .  C ADDR   0084H   A                          145 256# 
-MAIN . . . . . . .  C ADDR   00EBH   A                          140 362# 
-TESTPORT . . . . .  N NUMB   0080h                              105# 376 420 
+DELAY2MIN. . . . .  C ADDR   00E4H   A                          355# 511 
+BLINKLED . . . . .  C ADDR   0084H   A                          149 260# 
+MAIN . . . . . . .  C ADDR   00EBH   A                          144 366# 
+TESTPORT . . . . .  N NUMB   0080h                              108# 380 425 
 RB1. . . . . . . .  N NUMB   0008h                              85# 
 REN. . . . . . . .  B ADDR   0098H.4 A                          75# 
 T1 . . . . . . . .  B ADDR   00B0H.5 A                          65# 
 OV . . . . . . . .  B ADDR   00D0H.2 A                          38# 
+DRIVEMASK. . . . .  D ADDR   0023H   A                          133# 386 433 442 
+                                                                449 458 465 474 481 
+                                                                490 496 500 504 
 RB2. . . . . . . .  N NUMB   0010h                              86# 
-EA . . . . . . . .  B ADDR   00A8H.7 A                          50# 397 
-LSH. . . . . . . .  C ADDR   0196H   A                          469 473# 
+EA . . . . . . . .  B ADDR   00A8H.7 A                          50# 402 
+LSH. . . . . . . .  C ADDR   01CEH   A                          503 506# 
 ACC. . . . . . . .  D ADDR   00E0H   A                          13# 
-LPL. . . . . . . .  C ADDR   0164H   A                          445 449# 
-NEWCOMMAND . . . .  B ADDR   0023H.1 A                          131# 244 302 342 
-                                                                380 403 413 
+LPL. . . . . . . .  C ADDR   0173H   A                          456 462# 
+NEWCOMMAND . . . .  B ADDR   0024H.1 A                          135# 248 306 346 
+                                                                384 408 418 
 WR . . . . . . . .  B ADDR   00B0H.6 A                          64# 
-ET0. . . . . . . .  B ADDR   00A8H.1 A                          54# 395 
-ADDRESSPLUS. . . .  D ADDR   0021H   A                          128# 219 239 
+ET0. . . . . . . .  B ADDR   00A8H.1 A                          54# 400 
+ADDRESSPLUS. . . .  D ADDR   0021H   A                          131# 223 243 
 ET1. . . . . . . .  B ADDR   00A8H.3 A                          52# 
-TF0. . . . . . . .  B ADDR   0088H.5 A                          43# 259 
-BLL1 . . . . . . .  C ADDR   0095H   A                          260 267# 
-IRINPUT. . . . . .  B ADDR   00B0H.2 A                          112# 171 179 187 
-                                                                214 231 369 
+TF0. . . . . . . .  B ADDR   0088H.5 A                          43# 263 
+BLL1 . . . . . . .  C ADDR   0095H   A                          264 271# 
+IRINPUT. . . . . .  B ADDR   00B0H.2 A                          115# 175 183 191 
+                                                                218 235 373 
 TF1. . . . . . . .  B ADDR   0088H.7 A                          41# 
-LOOP2. . . . . . .  C ADDR   00D6H   A                          337# 344 
+COMMANDNOTFOUND. .  C ADDR   01E1H   A                          507 516# 
+LOOP2. . . . . . .  C ADDR   00D6H   A                          341# 348 
 RB8. . . . . . . .  B ADDR   0098H.2 A                          77# 
-TH0. . . . . . . .  D ADDR   008CH   A                          23# 263 268 393 
-LOOP3. . . . . . .  C ADDR   00D8H   A                          339# 343 
-FLAGS. . . . . . .  D ADDR   0023H   A                          130# 131 132 
-PLSRIGHT . . . . .  N NUMB   0003h                              94# 438 
-EX0. . . . . . . .  B ADDR   00A8H.0 A                          55# 165 197 249 385 
-                                                                475 
-IT0. . . . . . . .  B ADDR   0088H.0 A                          48# 386 
+TH0. . . . . . . .  D ADDR   008CH   A                          23# 267 272 398 
+LOOP3. . . . . . .  C ADDR   00D8H   A                          343# 347 
+FLAGS. . . . . . .  D ADDR   0024H   A                          134# 135 136 
+POWERTDRV. . . . .  N NUMB   000Bh                              102# 503 
+PLSRIGHT . . . . .  N NUMB   0003h                              94# 447 
+EX0. . . . . . . .  B ADDR   00A8H.0 A                          55# 169 201 253 390 
+                                                                508 
+IT0. . . . . . . .  B ADDR   0088H.0 A                          48# 391 
 TH1. . . . . . . .  D ADDR   008DH   A                          24# 
-LPR. . . . . . . .  C ADDR   014BH   A                          433 437# 
+LPR. . . . . . . .  C ADDR   0154H   A                          440 446# 
 TB8. . . . . . . .  B ADDR   0098H.3 A                          76# 
 RXD. . . . . . . .  B ADDR   00B0H.0 A                          70# 
-EX1. . . . . . . .  B ADDR   00A8H.2 A                          53# 387 476 
-IT1. . . . . . . .  B ADDR   0088H.2 A                          46# 388 
+EX1. . . . . . . .  B ADDR   00A8H.2 A                          53# 392 509 
+IT1. . . . . . . .  B ADDR   0088H.2 A                          46# 393 
 IE . . . . . . . .  D ADDR   00A8H   A                          25# 
-PAUSEMOTOR . . . .  C ADDR   00B0H   A                          310# 427 434 439 
-                                                                446 451 458 463 470 
-                                                                477 
-MSBIT1 . . . . . .  B ADDR   00B0H.6 A                          115# 284 370 
-INPUT. . . . . . .  B ADDR   00B0H.3 A                          114# 374 
-CNTLEFT. . . . . .  N NUMB   0006h                              97# 457 
+PAUSEMOTOR . . . .  C ADDR   00B0H   A                          314# 432 441 448 
+                                                                457 464 473 480 489 
+                                                                510 
+MSBIT1 . . . . . .  B ADDR   00B0H.6 A                          118# 288 374 
+INPUT. . . . . . .  B ADDR   00B0H.3 A                          117# 378 
+CNTLEFT. . . . . .  N NUMB   0006h                              97# 472 
 SM0. . . . . . . .  B ADDR   0098H.7 A                          72# 
 TXD. . . . . . . .  B ADDR   00B0H.1 A                          69# 
 P. . . . . . . . .  B ADDR   00D0H.0 A                          39# 
 SBUF . . . . . . .  D ADDR   0099H   A                          28# 
-TL0. . . . . . . .  D ADDR   008AH   A                          21# 264 269 394 
+TL0. . . . . . . .  D ADDR   008AH   A                          21# 268 273 399 
 PCON . . . . . . .  D ADDR   0087H   A                          18# 
-LCB. . . . . . . .  C ADDR   018CH   A                          462 468# 
-MSBIT2 . . . . . .  B ADDR   00B0H.4 A                          116# 288 371 
+LCB. . . . . . . .  C ADDR   01A5H   A                          479 487# 
+MSBIT2 . . . . . .  B ADDR   00B0H.4 A                          119# 292 375 
+BACKTDRV . . . . .  N NUMB   000Ah                              101# 499 
 SM1. . . . . . . .  B ADDR   0098H.6 A                          73# 
 TL1. . . . . . . .  D ADDR   008BH   A                          22# 
-MSBIT3 . . . . . .  B ADDR   00B0H.5 A                          117# 292 372 
+LBD. . . . . . . .  C ADDR   01BCH   A                          495 498# 
+MSBIT3 . . . . . .  B ADDR   00B0H.5 A                          120# 296 376 
 SM2. . . . . . . .  B ADDR   0098H.5 A                          74# 
-MSBIT4 . . . . . .  B ADDR   00B0H.7 A                          118# 296 373 
+MSBIT4 . . . . . .  B ADDR   00B0H.7 A                          121# 300 377 
 SCON . . . . . . .  D ADDR   0098H   A                          27# 
 PT0. . . . . . . .  B ADDR   00B8H.1 A                          60# 
-TMOD . . . . . . .  D ADDR   0089H   A                          20# 391 
+TMOD . . . . . . .  D ADDR   0089H   A                          20# 396 
 TCON . . . . . . .  D ADDR   0088H   A                          19# 
-LCF. . . . . . . .  C ADDR   0141H   A                          426 432# 
-EXITDELALY . . . .  C ADDR   00E3H   A                          342 345# 
-LED. . . . . . . .  B ADDR   00B0H.1 A                          111# 261 368 416 
+LCF. . . . . . . .  C ADDR   0147H   A                          431 439# 
+EXITDELALY . . . .  C ADDR   00E3H   A                          346 349# 
+LED. . . . . . . .  B ADDR   00B0H.1 A                          114# 265 372 421 
                                                                 
+FRONTDRV . . . . .  N NUMB   0009h                              100# 495 
 PT1. . . . . . . .  B ADDR   00B8H.3 A                          58# 
 RS0. . . . . . . .  B ADDR   00D0H.3 A                          37# 
-CNTBACK. . . . . .  N NUMB   0008h                              99# 469 
+LFD. . . . . . . .  C ADDR   01B3H   A                          488 494# 
+CNTBACK. . . . . .  N NUMB   0008h                              99# 488 
 RD . . . . . . . .  B ADDR   00B0H.7 A                          63# 
-TR0. . . . . . . .  B ADDR   0088H.4 A                          44# 258 270 417 
+TR0. . . . . . . .  B ADDR   0088H.4 A                          44# 262 274 422 
 RS1. . . . . . . .  B ADDR   00D0H.4 A                          36# 
 F0 . . . . . . . .  B ADDR   00D0H.5 A                          35# 
 TR1. . . . . . . .  B ADDR   0088H.6 A                          42# 
-DELAYPULSE . . . .  C ADDR   00D4H   A                          335# 354 429 441 
-                                                                453 465 480 481 482 
+DELAYPULSE . . . .  C ADDR   00D4H   A                          339# 358 436 452 
+                                                                468 484 513 514 515 
                                                                 
 PX0. . . . . . . .  B ADDR   00B8H.0 A                          61# 
 ES . . . . . . . .  B ADDR   00A8H.4 A                          51# 
-SKIPTOGGLE . . . .  C ADDR   0081H   A                          242 246# 
+SKIPTOGGLE . . . .  C ADDR   0081H   A                          246 250# 
 PX1. . . . . . . .  B ADDR   00B8H.2 A                          59# 
 IP . . . . . . . .  D ADDR   00B8H   A                          26# 
-PLSLEFT. . . . . .  N NUMB   0005h                              96# 450 
-CNTFORWARD . . . .  N NUMB   0002h                              93# 433 
-CMDSTOP. . . . . .  N NUMB   0000h                              91# 422 
+PLSLEFT. . . . . .  N NUMB   0005h                              96# 463 
+CNTFORWARD . . . .  N NUMB   0002h                              93# 440 
+CMDSTOP. . . . . .  N NUMB   0000h                              91# 427 
 PSW. . . . . . . .  D ADDR   00D0H   A                          12# 
-LCL. . . . . . . .  C ADDR   0173H   A                          450 456# 
-READCOMMAND. . . .  C ADDR   005EH   A                          224# 235 
+LCL. . . . . . . .  C ADDR   0185H   A                          463 471# 
+READCOMMAND. . . .  C ADDR   005EH   A                          228# 239 
 RI . . . . . . . .  B ADDR   0098H.0 A                          79# 
 INT0 . . . . . . .  B ADDR   00B0H.2 A                          68# 
-SHUTDOWN . . . . .  N NUMB   000Fh                              100# 474 
+SHUTDOWN . . . . .  N NUMB   000Fh                              103# 507 
 INT1 . . . . . . .  B ADDR   00B0H.3 A                          67# 
 CY . . . . . . . .  B ADDR   00D0H.7 A                          33# 
 DPH. . . . . . . .  D ADDR   0083H   A                          17# 
-MOTORDRIVER. . . .  N NUMB   00A0h                              109# 311 377 423 
-                                                                428 430 435 440 442 
-                                                                447 452 454 459 464 
-                                                                466 471 
-RELAY. . . . . . .  B ADDR   0090H.4 A                          107# 367 479 
+MOTORDRIVER. . . .  N NUMB   00A0h                              112# 315 381 428 
+                                                                435 437 444 451 453 
+                                                                460 467 469 476 483 
+                                                                485 492 
+RELAY. . . . . . .  B ADDR   0090H.4 A                          110# 371 512 
 TI . . . . . . . .  B ADDR   0098H.1 A                          78# 
-LPB. . . . . . . .  C ADDR   017DH   A                          457 461# 
-RECEIVEIR. . . . .  C ADDR   0016H   A                          142 163# 
+LPB. . . . . . . .  C ADDR   0192H   A                          472 478# 
+RECEIVEIR. . . . .  C ADDR   0016H   A                          146 167# 
 IE0. . . . . . . .  B ADDR   0088H.1 A                          47# 
-CONTINUEREADING. .  C ADDR   0041H   A                          196 200# 
-COMMAND. . . . . .  D ADDR   0020H   A                          127# 236 300 381 
-                                                                419 
+CONTINUEREADING. .  C ADDR   0041H   A                          200 204# 
+COMMAND. . . . . .  D ADDR   0020H   A                          130# 240 304 385 
+                                                                424 
 IE1. . . . . . . .  B ADDR   0088H.3 A                          45# 
 
 
 
 MODULE INFORMATION:   STATIC OVERLAYABLE
-   CODE SIZE        =    415    ----
+   CODE SIZE        =    474    ----
    XDATA SIZE       =   ----    ----
-   DATA SIZE        =      4    ----
+   DATA SIZE        =      5    ----
    IDATA SIZE       =   ----    ----
    BIT SIZE         =   ----    ----
 END OF MODULE INFORMATION.
